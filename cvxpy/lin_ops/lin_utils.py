@@ -383,23 +383,6 @@ def diag_mat(operator):
     size = (operator.size[0], 1)
     return lo.LinOp(lo.DIAG_MAT, size, [operator], None)
 
-def upper_tri(operator):
-    """Vectorized upper triangular portion of a square matrix.
-
-    Parameters
-    ----------
-    operator : LinOp
-        The matrix operator.
-
-    Returns
-    -------
-    LinOp
-       LinOp representing the vectorized upper triangle.
-    """
-    entries = operator.size[0]*operator.size[1]
-    size = ((entries - operator.size[0])//2, 1)
-    return lo.LinOp(lo.UPPER_TRI, size, [operator], None)
-
 def hstack(operators, size):
     """Concatenates operators horizontally.
 
@@ -491,9 +474,9 @@ def create_geq(lh_op, rh_op=None, constr_id=None):
     Parameters
     ----------
     lh_term : LinOp
-        The left-hand operator in the >= constraint.
+        The left-hand operator in the <= constraint.
     rh_term : LinOp
-        The right-hand operator in the >= constraint.
+        The right-hand operator in the <= constraint.
     constr_id : int
         The id of the CVXPY equality constraint creating the constraint.
 
@@ -518,7 +501,7 @@ def get_expr_vars(operator):
     list
         A list of (var id, var size) pairs.
     """
-    if operator.type == lo.VARIABLE:
+    if operator.type is lo.VARIABLE:
         return [(operator.data, operator.size)]
     else:
         vars_ = []
@@ -539,7 +522,7 @@ def get_expr_params(operator):
     list
         A list of parameter objects.
     """
-    if operator.type == lo.PARAM:
+    if operator.type is lo.PARAM:
         return operator.data.parameters()
     else:
         params = []

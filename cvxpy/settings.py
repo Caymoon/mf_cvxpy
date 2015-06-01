@@ -48,16 +48,43 @@ SOLUTION_PRESENT = [OPTIMAL, OPTIMAL_INACCURATE]
 INF_OR_UNB = [INFEASIBLE, INFEASIBLE_INACCURATE,
               UNBOUNDED, UNBOUNDED_INACCURATE]
 
-# Solver names.
+# Map of solver status to cvxpy status.
 CVXOPT = "CVXOPT"
-GLPK = "GLPK"
-GLPK_MI = "GLPK_MI"
+CVXOPT_STATUS = {'optimal': OPTIMAL,
+                 'primal infeasible': INFEASIBLE,
+                 'dual infeasible': UNBOUNDED,
+                 'unknown': SOLVER_ERROR}
 ECOS = "ECOS"
+ECOS_STATUS = {0: OPTIMAL,
+               1: INFEASIBLE,
+               2: UNBOUNDED,
+               10: OPTIMAL_INACCURATE,
+               11: INFEASIBLE_INACCURATE,
+               12: UNBOUNDED_INACCURATE,
+               -1: SOLVER_ERROR,
+               -2: SOLVER_ERROR,
+               -3: SOLVER_ERROR,
+               -4: SOLVER_ERROR,
+               -7: SOLVER_ERROR}
 ECOS_BB = "ECOS_BB"
 SCS = "SCS"
-GUROBI = "GUROBI"
-SOLVERS = [ECOS, ECOS_BB, CVXOPT, GLPK,
-           GLPK_MI, SCS, GUROBI]
+SCS_STATUS = {"Solved": OPTIMAL,
+              "Solved/Inaccurate": OPTIMAL_INACCURATE,
+              "Unbounded": UNBOUNDED,
+              "Unbounded/Inaccurate": UNBOUNDED_INACCURATE,
+              "Infeasible": INFEASIBLE,
+              "Infeasible/Inaccurate": INFEASIBLE_INACCURATE,
+              "Failure": SOLVER_ERROR,
+              "Indeterminate": SOLVER_ERROR}
+SCS_MAT_FREE = "SCS_MAT_FREE"
+
+SOLVER_STATUS = {CVXOPT: CVXOPT_STATUS,
+                 ECOS: ECOS_STATUS,
+                 ECOS_BB: ECOS_STATUS,
+                 SCS: SCS_STATUS}
+
+# Solver capabilities.
+SOLVERS = [ECOS, ECOS_BB, CVXOPT, SCS]
 
 # Map of constraint types.
 EQ, LEQ, SOC, SOC_EW, SDP, EXP, BOOL, INT = range(8)
@@ -76,20 +103,9 @@ INT_IDX = "int_idx"
 
 # Keys for results_dict.
 STATUS = "status"
+SOLVE_TIME = "solve_time"
 VALUE = "value"
 OBJ_OFFSET = "obj_offset"
 PRIMAL = "primal"
 EQ_DUAL = "eq_dual"
 INEQ_DUAL = "ineq_dual"
-
-# Keys for problem data dict.
-C = "c"
-OFFSET = "offset"
-A = "A"
-B = "b"
-G = "G"
-H = "h"
-F = "F"
-DIMS = "dims"
-BOOL_IDX = "bool_vars_idx"
-INT_IDX = "int_vars_idx"

@@ -19,14 +19,11 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 from cvxpy import *
 import cvxpy.atoms.elementwise.log as cvxlog
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 import cvxopt
 import unittest
 import math
 import numpy as np
-import sys
-if sys.version_info >= (3, 0):
-    from functools import reduce
 
 class TestSCS(BaseTest):
     """ Unit tests for the nonlinear atoms module. """
@@ -98,25 +95,6 @@ class TestSCS(BaseTest):
         result = p.solve(solver=SCS)
         self.assertAlmostEqual(result, 1)
 
-    def test_sigma_max(self):
-        """Test sigma_max.
-        """
-        const = Constant([[1,2,3],[4,5,6]])
-        constr = [self.C == const]
-        prob = Problem(Minimize(norm(self.C, 2)), constr)
-        result = prob.solve(solver=SCS)
-        self.assertAlmostEqual(result, norm(const, 2).value)
-        self.assertItemsAlmostEqual(self.C.value, const.value)
-
-    def test_sdp_var(self):
-        """Test sdp var.
-        """
-        const = Constant([[1,2,3],[4,5,6], [7,8,9]])
-        X = Semidef(3)
-        prob = Problem(Minimize(0), [X == const])
-        prob.solve(verbose=True, solver=SCS)
-        self.assertEqual(prob.status, INFEASIBLE)
-
     def test_entr(self):
         """Test the entr atom.
         """
@@ -142,10 +120,10 @@ class TestSCS(BaseTest):
         #Distribution to be estimated
         v_prob=cp.Variable(kK,1)
         objkl=0.0
-        for k in range(kK):
+        for k in xrange(kK):
             objkl += cp.kl_div(v_prob[k,0],p_refProb[k,0])
 
-        constrs=[sum([v_prob[k,0] for k in range(kK)])==1]
+        constrs=[sum([v_prob[k,0] for k in xrange(kK)])==1]
         klprob=cp.Problem(cp.Minimize(objkl),constrs)
         p_refProb.value=npSPriors
         result = klprob.solve(solver=SCS, verbose=True)
@@ -155,7 +133,7 @@ class TestSCS(BaseTest):
         """Test a problem with entr.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Maximize(sum_entries(entr(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -166,7 +144,7 @@ class TestSCS(BaseTest):
         """Test a problem with exp.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Minimize(sum_entries(exp(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -177,7 +155,7 @@ class TestSCS(BaseTest):
         """Test a problem with log.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Maximize(sum_entries(log(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -204,17 +182,6 @@ class TestSCS(BaseTest):
         problem.solve(verbose=True, solver=cvxpy.SCS)
         assert problem.status == cvxpy.OPTIMAL_INACCURATE, problem.status
         return [eta1.value, eta2.value, eta3.value]
-
-    def test_warm_start(self):
-        """Test warm starting.
-        """
-        x = Variable(10)
-        obj = Minimize(sum_entries(exp(x)))
-        prob = Problem(obj, [sum_entries(x) == 1])
-        result = prob.solve(solver=SCS)
-        assert prob.solve(solver=SCS, verbose=True) == result
-        # TODO Probably a bad check. Ought to be the same.
-        assert prob.solve(solver=SCS, warm_start=True, verbose=True) != result
 
     # def test_kl_div(self):
     #     """Test the kl_div atom.

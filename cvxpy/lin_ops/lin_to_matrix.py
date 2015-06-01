@@ -52,7 +52,7 @@ def get_coefficients(lin_op):
         A list of (id, coefficient) tuples.
     """
     # VARIABLE converts to a giant identity matrix.
-    if lin_op.type == lo.VARIABLE:
+    if lin_op.type is lo.VARIABLE:
         coeffs = var_coeffs(lin_op)
     # Constants convert directly to their value.
     elif lin_op.type in CONSTANT_TYPES:
@@ -83,7 +83,7 @@ def get_constant_coeff(lin_op):
     """
     coeffs = get_coefficients(lin_op)
     for id_, coeff in coeffs:
-        if id_ == lo.CONSTANT_ID:
+        if id_ is lo.CONSTANT_ID:
             return coeff
     return None
 
@@ -116,7 +116,7 @@ def const_mat(lin_op):
     -------
     A numerical constant.
     """
-    if lin_op.type == lo.PARAM:
+    if lin_op.type is lo.PARAM:
         coeff = lin_op.data.value
     elif lin_op.type in [lo.SCALAR_CONST, lo.DENSE_CONST, lo.SPARSE_CONST]:
         coeff = lin_op.data
@@ -176,7 +176,7 @@ def trace_mat(lin_op):
     """
     rows, _ = lin_op.args[0].size
     mat = np.zeros((1, rows**2))
-    for i in range(rows):
+    for i in xrange(rows):
         mat[0, i*rows + i] = 1
     return [np.matrix(mat)]
 
@@ -342,8 +342,8 @@ def transpose_mat(lin_op):
     val_arr = []
     row_arr = []
     col_arr = []
-    for col in range(cols):
-        for row in range(rows):
+    for col in xrange(cols):
+        for row in xrange(rows):
             # Index in transposed coeff.
             row_arr.append(col*rows + row)
             # Index in original coeff.
@@ -371,7 +371,7 @@ def diag_vec_mat(lin_op):
     val_arr = []
     row_arr = []
     col_arr = []
-    for i in range(rows):
+    for i in xrange(rows):
         # Index in the diagonal matrix.
         row_arr.append(i*rows + i)
         # Index in the original vector.
@@ -399,7 +399,7 @@ def diag_mat_mat(lin_op):
     val_arr = []
     row_arr = []
     col_arr = []
-    for i in range(rows):
+    for i in xrange(rows):
         # Index in the original matrix.
         col_arr.append(i*rows + i)
         # Index in the extracted vector.
@@ -408,39 +408,6 @@ def diag_mat_mat(lin_op):
 
     return [sp.coo_matrix((val_arr, (row_arr, col_arr)),
                           (rows, rows**2)).tocsc()]
-
-def upper_tri_mat(lin_op):
-    """Returns the coefficients matrix for UPPER_TRI linear op.
-
-    Parameters
-    ----------
-    lin_op : LinOp
-        The upper tri linear op.
-
-    Returns
-    -------
-    SciPy CSC matrix
-        The matrix to vectorize the upper triangle.
-    """
-    rows, cols = lin_op.args[0].size
-
-    val_arr = []
-    row_arr = []
-    col_arr = []
-    count = 0
-    for i in range(rows):
-        for j in range(cols):
-            if j > i:
-                # Index in the original matrix.
-                col_arr.append(j*rows + i)
-                # Index in the extracted vector.
-                row_arr.append(count)
-                val_arr.append(1.0)
-                count += 1
-
-    entries, _ = lin_op.size
-    return [sp.coo_matrix((val_arr, (row_arr, col_arr)),
-                          (entries, rows*cols)).tocsc()]
 
 def conv_mat(lin_op):
     """Returns the coefficient matrix for CONV linear op.
@@ -504,8 +471,8 @@ def stack_mats(lin_op, vertical):
             col_offset = arg.size[0]
             offset_incr = arg.size[0]*arg.size[1]
 
-        for i in range(arg.size[0]):
-            for j in range(arg.size[1]):
+        for i in xrange(arg.size[0]):
+            for j in xrange(arg.size[1]):
                 row_arr.append(i + j*col_offset + offset)
                 col_arr.append(i + j*arg.size[0])
                 val_arr.append(1)
@@ -536,7 +503,6 @@ TYPE_TO_FUNC = {
     lo.SUM: lambda lin_op: [1]*len(lin_op.args),
     lo.DIAG_VEC: diag_vec_mat,
     lo.DIAG_MAT: diag_mat_mat,
-    lo.UPPER_TRI: upper_tri_mat,
     lo.CONV: conv_mat,
     lo.HSTACK: lambda lin_op: stack_mats(lin_op, False),
     lo.VSTACK: lambda lin_op: stack_mats(lin_op, True),

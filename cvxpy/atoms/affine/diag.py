@@ -60,8 +60,8 @@ class diag_vec(AffAtom):
         """Convert the vector constant into a diagonal matrix.
         """
         # Convert values to 1D.
-        value = intf.from_2D_to_1D(values[0])
-        return np.diag(value)
+        values = map(intf.from_2D_to_1D, values)
+        return np.diag(values[0])
 
     def shape_from_args(self):
         """A square matrix.
@@ -99,11 +99,7 @@ class diag_mat(AffAtom):
     def numeric(self, values):
         """Extract the diagonal from a square matrix constant.
         """
-        # The return type in numpy versions < 1.10 was ndarray.
-        v = np.diag(values[0])
-        if isinstance(v, np.matrix):
-            v = v.A[0]
-        return v
+        return np.diag(values[0])
 
     def shape_from_args(self):
         """A column vector.

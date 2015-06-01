@@ -17,22 +17,19 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
-#from cvxpy.interface.base_matrix_interface import BaseMatrixInterface
-from cvxpy.interface import base_matrix_interface
+from ..base_matrix_interface import BaseMatrixInterface
+import cvxopt
 import numpy as np
 import scipy.sparse as sp
 import numbers
-import cvxopt
 
-
-class DenseMatrixInterface(base_matrix_interface.BaseMatrixInterface):
+class DenseMatrixInterface(BaseMatrixInterface):
     """
     An interface to convert constant values to the cvxopt dense matrix class.
     """
     TARGET_MATRIX = cvxopt.matrix
 
-    @base_matrix_interface.BaseMatrixInterface.scalar_const
+    @BaseMatrixInterface.scalar_const
     def const_to_matrix(self, value, convert_scalars=False):
         """Convert an arbitrary value into a matrix of type self.target_matrix.
 
@@ -64,10 +61,6 @@ class DenseMatrixInterface(base_matrix_interface.BaseMatrixInterface):
 
     # A matrix with all entries equal to the given scalar value.
     def scalar_matrix(self, value, rows, cols):
-        if isinstance(rows, numbers.Number):
-            rows = int(rows)
-        if isinstance(cols, numbers.Number):
-            cols = int(cols)
         return cvxopt.matrix(value, (rows,cols), tc='d')
 
     # Stuff the matrix into a different shape.
@@ -75,4 +68,3 @@ class DenseMatrixInterface(base_matrix_interface.BaseMatrixInterface):
     def reshape(self, matrix, size):
         matrix = self.const_to_matrix(matrix, convert_scalars=True)
         return cvxopt.matrix(list(matrix), size, tc='d')
-

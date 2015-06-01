@@ -17,17 +17,12 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __future__ import division
-import sys
-
-from cvxpy.atoms.affine.affine_atom import AffAtom
+from affine_atom import AffAtom
 import cvxpy.interface as intf
-from cvxpy.expressions.constants import Constant
+from ...expressions.constants import Constant
 import cvxpy.lin_ops.lin_utils as lu
 import operator as op
 import numpy as np
-if sys.version_info >= (3, 0):
-    from functools import reduce
 
 class BinaryOperator(AffAtom):
     """
@@ -53,8 +48,7 @@ class BinaryOperator(AffAtom):
 
     # Validate the dimensions.
     def validate_arguments(self):
-        self.OP_FUNC(self.args[0]._dcp_attr.shape,
-                     self.args[1]._dcp_attr.shape)
+        self.OP_FUNC(self.args[0].shape, self.args[1].shape)
 
 class MulExpression(BinaryOperator):
     OP_NAME = "*"
@@ -114,7 +108,7 @@ class RMulExpression(MulExpression):
 
 class DivExpression(BinaryOperator):
     OP_NAME = "/"
-    OP_FUNC = op.__truediv__ if (sys.version_info >= (3,0) ) else op.__div__
+    OP_FUNC = op.div
 
     @staticmethod
     def graph_implementation(arg_objs, size, data=None):

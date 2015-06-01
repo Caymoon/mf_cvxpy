@@ -36,12 +36,6 @@ class Solver(object):
         pass
 
     @abc.abstractmethod
-    def import_solver(self):
-        """Imports the solver.
-        """
-        pass
-
-    @abc.abstractmethod
     def matrix_intf(self):
         """The interface for matrices passed to the solver.
         """
@@ -66,6 +60,24 @@ class Solver(object):
         -------
         tuple
             (eq_constr, ineq_constr, nonlin_constr)
+        """
+        pass
+
+    @abc.abstractmethod
+    def sdp_capable(self):
+        """Can the solver handle SDPs?
+        """
+        pass
+
+    @abc.abstractmethod
+    def exp_capable(self):
+        """Can the solver handle the exponential cone?
+        """
+        pass
+
+    @abc.abstractmethod
+    def mip_capable(self):
+        """Can the solver handle boolean or integer variables?
         """
         pass
 
@@ -97,15 +109,6 @@ class Solver(object):
         else:
             return s.ECOS
 
-    def is_installed(self):
-        """Is the solver installed?
-        """
-        try:
-            self.import_solver()
-            return True
-        except ImportError:
-            return False
-
     def validate_solver(self, constraints):
         """Raises an exception if the solver cannot solve the problem.
 
@@ -114,18 +117,12 @@ class Solver(object):
         constraints: list
             The list of canonicalized constraints.
         """
-        # Check the solver is installed.
-        if not self.is_installed():
-            raise SolverError("The solver %s is not installed." % self.name())
-        # Check the solver can solve the problem.
         constr_map = SymData.filter_constraints(constraints)
         if ((constr_map[s.BOOL] or constr_map[s.INT]) \
-            and not self.MIP_CAPABLE) or \
-           (constr_map[s.SDP] and not self.SDP_CAPABLE) or \
-           (constr_map[s.EXP] and not self.EXP_CAPABLE) or \
-           (constr_map[s.SOC] and not self.SOCP_CAPABLE) or \
-           (len(constraints) == 0 and self.name() in [s.SCS,
-                                                      s.GLPK]):
+            and not self.mip_capable()) or \
+           (constr_map[s.SDP] and not self.sdp_capable()) or \
+           (constr_map[s.EXP] and not self.exp_capable()) or \
+           (len(constraints) == 0 and self.name() == s.SCS):
             raise SolverError(
                 "The solver %s cannot solve the problem." % self.name()
             )
@@ -213,28 +210,27 @@ class Solver(object):
 
         Returns
         -------
-        dict
-            The arguments needed for the solver.
+        tuple
+            (solver args tuple, offset)
         """
         sym_data = self.get_sym_data(objective, constraints, cached_data)
         matrix_data = self.get_matrix_data(objective, constraints,
                                            cached_data)
-        data = {}
-        data[s.C], data[s.OFFSET] = matrix_data.get_objective()
-        data[s.A], data[s.B] = matrix_data.get_eq_constr()
-        data[s.G], data[s.H] = matrix_data.get_ineq_constr()
-        data[s.F] = matrix_data.get_nonlin_constr()
-        data[s.DIMS] = sym_data.dims.copy()
-        bool_idx, int_idx = self._noncvx_id_to_idx(data[s.DIMS],
-                                                   sym_data.var_offsets,
-                                                   sym_data.var_sizes)
-        data[s.BOOL_IDX] = bool_idx
-        data[s.INT_IDX] = int_idx
-        return data
+        c, offset = matrix_data.get_objective()
+        A, b = matrix_data.get_eq_constr()
+        G, h = matrix_data.get_ineq_constr()
+        F = matrix_data.get_nonlin_constr()
+        args = self._shape_args(c, A, b, G, h, F, sym_data.dims)
+        return (args, offset)
 
     @abc.abstractmethod
-    def solve(self, objective, constraints, cached_data,
-              warm_start, verbose, solver_opts):
+    def _shape_args(self, c, A, b, G, h, F, dims):
+        """Returns the arguments that will be passed to the solver.
+        """
+        pass
+
+    @abc.abstractmethod
+    def solve(self, objective, constraints, cached_data, verbose, solver_opts):
         """Returns the result of the call to the solver.
 
         Parameters
@@ -245,8 +241,6 @@ class Solver(object):
             The list of canonicalized cosntraints.
         cached_data : dict
             A map of solver name to cached problem data.
-        warm_start : bool
-            Should the previous solver result be used to warm_start?
         verbose : bool
             Should the solver print output?
         solver_opts : dict
@@ -260,17 +254,17 @@ class Solver(object):
         pass
 
     @abc.abstractmethod
-    def format_results(self, results_dict, data, cached_data):
+    def format_results(self, results_dict, dims, obj_offset=0):
         """Converts the solver output into standard form.
 
         Parameters
         ----------
         results_dict : dict
             The solver output.
-        data : dict
-            Information about the problem.
-        cached_data : dict
-            A map of solver name to cached problem data.
+        dims : dict
+            The cone dimensions in the canonicalized problem.
+        obj_offset : float, optional
+            The constant term in the objective.
 
         Returns
         -------
@@ -278,40 +272,3 @@ class Solver(object):
             The solver output in standard form.
         """
         pass
-
-    @staticmethod
-    def is_mip(data):
-        """Is the problem a mixed integer program?
-        """
-        return len(data[s.BOOL_IDX]) > 0 or len(data[s.BOOL_IDX]) > 0
-
-    @staticmethod
-    def _noncvx_id_to_idx(dims, var_offsets, var_sizes):
-        """Converts the nonconvex constraint variable ids in dims into indices.
-
-        Parameters
-        ----------
-        dims : dict
-            The dimensions of the cones.
-        var_offsets : dict
-            A dict of variable id to horizontal offset.
-        var_sizes : dict
-            A dict of variable id to variable dimensions.
-
-        Returns
-        -------
-        tuple
-            A list of indices for the boolean variables and integer variables.
-        """
-        bool_idx = []
-        int_idx = []
-        for indices, constr_type in zip([bool_idx, int_idx],
-                                        [s.BOOL_IDS, s.INT_IDS]):
-            for var_id in dims[constr_type]:
-                offset = var_offsets[var_id]
-                size = var_sizes[var_id]
-                for i in range(size[0]*size[1]):
-                    indices.append(offset + i)
-            del dims[constr_type]
-
-        return bool_idx, int_idx

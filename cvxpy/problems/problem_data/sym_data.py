@@ -142,8 +142,8 @@ class SymData(object):
                     # For equality constraint, coeff must be zero.
                     # For inequality (i.e. <= 0) constraint,
                     # coeff must be negative.
-                    if key == s.EQ and not sign.is_zero() or \
-                        key == s.LEQ and not sign.is_negative():
+                    if key is s.EQ and not sign.is_zero() or \
+                        key is s.LEQ and not sign.is_negative():
                         return s.INFEASIBLE
                 else:
                     new_constraints.append(constr)
@@ -217,7 +217,7 @@ class SymData(object):
         # Ensure the variables are always in the same
         # order for the same problem.
         var_names = list(set(vars_))
-        var_names.sort(key=lambda id_and_size: id_and_size[0])
+        var_names.sort(key=lambda (var_id, var_size): var_id)
         # Map var ids to offsets and size.
         var_sizes = {}
         vert_offset = 0

@@ -20,51 +20,30 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 import cvxpy.interface as intf
 import cvxpy.settings as s
 from cvxpy.problems.solvers.solver import Solver
+import ecos
 
 class ECOS(Solver):
     """An interface for the ECOS solver.
     """
-
-    # Solver capabilities.
-    LP_CAPABLE = True
-    SOCP_CAPABLE = True
-    SDP_CAPABLE = False
-    EXP_CAPABLE = False
-    MIP_CAPABLE = False
-
-    # EXITCODES from ECOS
-    # ECOS_OPTIMAL  (0)   Problem solved to optimality
-    # ECOS_PINF     (1)   Found certificate of primal infeasibility
-    # ECOS_DINF     (2)   Found certificate of dual infeasibility
-    # ECOS_INACC_OFFSET (10)  Offset exitflag at inaccurate results
-    # ECOS_MAXIT    (-1)  Maximum number of iterations reached
-    # ECOS_NUMERICS (-2)  Search direction unreliable
-    # ECOS_OUTCONE  (-3)  s or z got outside the cone, numerics?
-    # ECOS_SIGINT   (-4)  solver interrupted by a signal/ctrl-c
-    # ECOS_FATAL    (-7)  Unknown problem in solver
-
-    # Map of ECOS status to CVXPY status.
-    STATUS_MAP = {0: s.OPTIMAL,
-                  1: s.INFEASIBLE,
-                  2: s.UNBOUNDED,
-                  10: s.OPTIMAL_INACCURATE,
-                  11: s.INFEASIBLE_INACCURATE,
-                  12: s.UNBOUNDED_INACCURATE,
-                  -1: s.SOLVER_ERROR,
-                  -2: s.SOLVER_ERROR,
-                  -3: s.SOLVER_ERROR,
-                  -4: s.SOLVER_ERROR,
-                  -7: s.SOLVER_ERROR}
-
-    def import_solver(self):
-        """Imports the solver.
-        """
-        import ecos
-
     def name(self):
         """The name of the solver.
         """
         return s.ECOS
+
+    def sdp_capable(self):
+        """Can the solver handle SDPs?
+        """
+        return True
+
+    def exp_capable(self):
+        """Can the solver handle the exponential cone?
+        """
+        return True
+
+    def mip_capable(self):
+        """Can the solver handle boolean or integer variables?
+        """
+        return False
 
     def matrix_intf(self):
         """The interface for matrices passed to the solver.
@@ -91,8 +70,12 @@ class ECOS(Solver):
         """
         return (constr_map[s.EQ], constr_map[s.LEQ], [])
 
-    def solve(self, objective, constraints, cached_data,
-              warm_start, verbose, solver_opts):
+    def _shape_args(self, c, A, b, G, h, F, dims):
+        """Returns the arguments that will be passed to the solver.
+        """
+        return (c, G, h, dims, A, b)
+
+    def solve(self, objective, constraints, cached_data, verbose, solver_opts):
         """Returns the result of the call to the solver.
 
         Parameters
@@ -103,8 +86,6 @@ class ECOS(Solver):
             The list of canonicalized cosntraints.
         cached_data : dict
             A map of solver name to cached problem data.
-        warm_start : bool
-            Not used.
         verbose : bool
             Should the solver print output?
         solver_opts : dict
@@ -115,25 +96,23 @@ class ECOS(Solver):
         tuple
             (status, optimal value, primal, equality dual, inequality dual)
         """
-        import ecos
-        data = self.get_problem_data(objective, constraints, cached_data)
-        results_dict = ecos.solve(data[s.C], data[s.G], data[s.H],
-                                  data[s.DIMS], data[s.A], data[s.B],
-                                  verbose=verbose,
+        prob_data = self.get_problem_data(objective, constraints, cached_data)
+        obj_offset = prob_data[1]
+        results_dict = ecos.solve(*prob_data[0], verbose=verbose,
                                   **solver_opts)
-        return self.format_results(results_dict, data, cached_data)
+        return self.format_results(results_dict, None, obj_offset)
 
-    def format_results(self, results_dict, data, cached_data):
+    def format_results(self, results_dict, dims, obj_offset=0):
         """Converts the solver output into standard form.
 
         Parameters
         ----------
         results_dict : dict
             The solver output.
-        data : dict
-            Information about the problem.
-        cached_data : dict
-            A map of solver name to cached problem data.
+        dims : dict
+            The cone dimensions in the canonicalized problem.
+        obj_offset : float, optional
+            The constant term in the objective.
 
         Returns
         -------
@@ -141,11 +120,12 @@ class ECOS(Solver):
             The solver output in standard form.
         """
         new_results = {}
-        status = self.STATUS_MAP[results_dict['info']['exitFlag']]
+        status = s.SOLVER_STATUS[s.ECOS][results_dict['info']['exitFlag']]
         new_results[s.STATUS] = status
+        new_results[s.SOLVE_TIME] = results_dict['info']["timing"]['runtime']
         if new_results[s.STATUS] in s.SOLUTION_PRESENT:
             primal_val = results_dict['info']['pcost']
-            new_results[s.VALUE] = primal_val + data[s.OFFSET]
+            new_results[s.VALUE] = primal_val + obj_offset
             new_results[s.PRIMAL] = results_dict['x']
             new_results[s.EQ_DUAL] = results_dict['y']
             new_results[s.INEQ_DUAL] = results_dict['z']

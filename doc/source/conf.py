@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # To import sphinx extensions we've put in the repository:
 sys.path.insert(0, os.path.abspath('../sphinxext'))
 
-__version__ = "0.2.21"
+__version__ = "0.2.15"
 
 # -- General configuration -----------------------------------------------------
 
@@ -30,36 +30,14 @@ __version__ = "0.2.21"
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.doctest',
-              'sphinx.ext.todo',
-              'sphinx.ext.coverage',
-              'sphinx.ext.mathjax',
-              'sphinx.ext.viewcode',
-              'numpydoc']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosummary',
+'sphinx.ext.doctest', 'sphinx.ext.mathbase',
+'sphinx.ext.intersphinx', 'sphinx.ext.todo', 'sphinx.ext.coverage',
+'sphinx.ext.mathjax', 'sphinx.ext.viewcode', 'numpydoc']
 
 # To suppress autodoc/numpydoc warning.
 # http://stackoverflow.com/questions/12206334/sphinx-autosummary-toctree-contains-reference-to-nonexisting-document-warnings
 numpydoc_show_class_members = False
-
-
-# Since readthedocs.org has trouble compiling `cvxopt`, autodoc fails
-# whenever it tries to import a CVXPY module to document it.
-# The following code replaces the relevant cvxopt modules with
-# a dummy namespace, allowing autodoc to work.
-class Mocked(object):
-    def __setattr__(self, name, value):
-        self.__dict__[name] = value
-
-    def __getattr__(self, name):
-        if name in self.__dict__:
-            return self.__dict__[name]
-        else:
-            return None
-
-MOCK_MODULES = ['cvxopt', 'cvxopt.base', 'cvxopt.misc']
-sys.modules.update((mod_name, Mocked()) for mod_name in MOCK_MODULES)
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -171,7 +149,7 @@ html_theme_options = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -295,4 +273,3 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://docs.python.org/': None}
-

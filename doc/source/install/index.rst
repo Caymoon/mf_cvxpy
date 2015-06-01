@@ -6,39 +6,47 @@ Install Guide
 Mac OS X
 --------
 
-The following instructions assume you already have Python installed.
-CVXPY supports both Python 2 and Python 3.
-
 1. Install the Command Line Tools for Xcode.
 
    Download from the `Apple developer site <http://developer.apple.com/downloads>`_.
 
-2. If you don't have ``pip`` installed, follow the instructions `here <https://pip.pypa.io/en/latest/installing.html>`_ to install it.
+2. Install `Anaconda`_.
 
-3. Install ``numpy`` with ``pip`` from the command-line.
+   Follow the instructions on the `website`_.
+
+3. Make sure `Anaconda`_ has the latest version of Python 2.
 
    ::
 
-     pip install numpy
+       conda update python
 
-4. Install ``cvxpy`` with ``pip`` from the command-line.
+
+4. Install ``numpy`` and ``scipy`` using conda from the command-line.
+
+   ::
+
+       conda install numpy scipy
+
+5. Install ``cvxpy`` with ``pip`` from the command-line.
 
    ::
 
        pip install cvxpy
 
-5. Test the installation with ``nose``.
+6. Install ``nose`` using conda from the command-line.
 
   ::
 
-       pip install nose
+       conda install nose
+
+7. Test the installation with ``nose``.
+
+  ::
+
        nosetests cvxpy
 
 Ubuntu 14.04
 ------------
-
-The following instructions are for installing CVXPY with Python 2.
-To install CVXPY with Python 3, simply install the Python 3 version of all the packages.
 
 1. Make sure ``apt-get`` is up-to-date.
 
@@ -46,7 +54,7 @@ To install CVXPY with Python 3, simply install the Python 3 version of all the p
 
       sudo apt-get update
 
-2. Install ``ATLAS`` and ``gfortran`` (needed for ``SCS``).
+2. Install ``ATLAS`` and ``gfortran`` (needed for ``scs``).
 
    ::
 
@@ -76,19 +84,13 @@ To install CVXPY with Python 3, simply install the Python 3 version of all the p
 
        sudo pip install cvxpy
 
-  or to install locally
-
-   ::
-
-      pip install --user cvxpy
-
-7. Install ``nose``.
+6. Install ``nose``.
 
   ::
 
        sudo apt-get install python-nose
 
-8. Test the installation with ``nose``.
+7. Test the installation with ``nose``.
 
   ::
 
@@ -97,41 +99,93 @@ To install CVXPY with Python 3, simply install the Python 3 version of all the p
 Windows
 -------
 
-Here is a step-by-step guide to installing CVXPY on a Windows machine.
+Here is a step-by-step guide to installing cvxpy on a Windows machine.
 
 1. If you have Python installed already, it's probably a good idea to remove it first. (Sorry!)
 
 2. Download the latest version of Python(x,y).
 
-3. Install Python(x,y). When prompted to select optional components, make sure to check cvxopt and cvxpy, as shown below.
+3. Install Python(x,y). When prompted to select optional components, make sure to check cvxopt and MinGW, as shown below.
 
   .. image:: files/windows1.png
       :scale: 100%
 
   .. image:: files/windows2.png
-      :scale: 49%
+      :scale: 100%
 
-4. To test the cvxpy installation,
-open Python(x,y) and launch the interactive console (highlighted button in the picture).
-This will bring up a console.
+
+4. We need to set the default compiler as mingw32. Open Notepad and type the following, save the file at C:\Python27\Lib\distutils\distutils.cfg. (This is the default location. If you installed Python somewhere else, use the appropriate location.)
+
+  .. image:: files/windows3.png
+      :scale: 100%
+
+5. Open Python(x,y) and launch the interactive console (highlighted button in the picture). This will bring up a console.
 
   .. image:: files/windows4.png
       :scale: 100%
 
-5. From the console, run "nosetests cvxpy".
-If all the tests pass, your installation was successful.
+6. From the console, run "pip install ecos" to install ecos.
+
+7. We need to install BLAS and LAPACK libraries, and make the scs package use them. Go here to download the win32 version of the dll and lib files of both BLAS and LAPACK. Put them under some directory, say C:\blaslapack, as shown below.
+
+  .. image:: files/windows5.png
+      :scale: 100%
+
+8. The system needs to know where to find the libraries. Right click on This PC (or My Computer), click Properties, Advanced system settings, then Environment Variables. Under the System variables list, find a variable named Path, and press Edit. Then, at the end of the list, put the address to the directory where you put the library files. All paths must be separated by semicolons.
+
+  .. image:: files/windows6.png
+      :scale: 100%
+
+9. Go here and download the scs package as a zip file. Unzip it.
+
+10. Browse to scs-master directory, and edit line 48 of the file scs.mk to "USE_LAPACK = 1". Without this, scs won't be able to solve SDPs.
+
+  .. image:: files/windows7.png
+      :scale: 100%
+
+11. Browse to the src directory, and open the file cones.c. Edit lines 11 and 13 to look like the following.
+
+  .. image:: files/windows8.png
+      :scale: 100%
+
+12. We have to change the numpy settings so that it knows where to find the libraries. Open C:\Python27\Lib\site-packages\numpy\distutils\site.cfg and add the following lines to the end of the file:
+
+  ::
+
+    [blas]
+    library_dirs = C:\blaslapack
+    blas_libs = blas
+    [lapack]
+    library_dirs = C:\blaslapack
+    lapack_libs = lapack
+
+You can remove what's already in there, and replace the file with just the six lines above.
+
+  .. image:: files/windows9.png
+      :scale: 100%
+
+13. Go back to the Python(x,y) terminal, and browse to the python directory of scs-master. From there, type "python setup.py build" to build scs. (If this step results in some error, remove the build directory and try again.) After the build is successful, run "python setup.py install" to install.
+
+14. After scs is installed, run "pip install cvxpy" to install cvxpy.
+
+15. Reboot your computer so that the path environment variable we set in step 8 takes effect.
+
+16. cvxpy should work now. You can use the Spyder IDE from the Python(x,y) home window. Click on the Spyder button to launch it. This IDE allows you to code, run, and view the console all in the same window. In order to check if the installation was successful, open a terminal, browse to C:\Python27\Lib\site-packages\cvxpy, and run "nosetests tests". This runs all unit tests and reports any error found.
+
+  .. image:: files/windows10.png
+      :scale: 50%
 
 Other Platforms
 ---------------
 
-The CVXPY installation process on other platforms is less automated and less well tested. Check `this page <https://github.com/cvxgrp/cvxpy/wiki/CVXPY-installation-instructions-for-non-standard-platforms>`_ for instructions for your platform.
+The CVXPY installation process on other platforms is less automated and less well tested. Check `this page <https://github.com/cvxgrp/cvxpy/wiki/CVXPY-installation-instructions>`_ for instructions for your platform.
 
 Install from source
 -------------------
 
 CVXPY has the following dependencies:
 
-* Python 2.7 or Python 3.4
+* Python 2.7
 * `setuptools`_ >= 1.4
 * `toolz`_
 * `CVXOPT`_ >= 1.1.6
@@ -152,24 +206,6 @@ installed `NumPy`_ and `SciPy`_, installing CVXPY from source is simple:
    ::
 
        python setup.py install
-
-Install with GLPK support
--------------------------
-
-CVXPY supports the GLPK solver, but only if CVXOPT is installed with GLPK bindings. To install CVXPY and its dependencies with GLPK support, follow these instructions:
-
-1. Install `GLPK <https://www.gnu.org/software/glpk/>`_. We recommend either installing the latest GLPK from source or using a package manager such as apt-get on Ubuntu and homebrew on OS X.
-
-2. Install `CVXOPT`_ with GLPK bindings.
-
-    ::
-
-      CVXOPT_BUILD_GLPK=1
-      CVXOPT_GLPK_LIB_DIR=/path/to/glpk-X.X/lib
-      CVXOPT_GLPK_INC_DIR=/path/to/glpk-X.X/include
-      pip install cvxopt
-
-3. Follow the standard installation procedure to install CVXPY and its remaining dependencies.
 
 .. _Anaconda: https://store.continuum.io/cshop/anaconda/
 .. _website: https://store.continuum.io/cshop/anaconda/

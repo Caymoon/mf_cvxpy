@@ -17,13 +17,14 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from cvxpy.interface import cvxopt_interface as co_intf
-from cvxpy.interface import numpy_interface as np_intf
+import cvxopt_interface as co_intf
+import numpy_interface as np_intf
+import cvxopt
 import scipy.sparse as sp
 import numbers
 import numpy as np
+import warnings
 from cvxpy.utilities.sign import Sign
-import cvxopt
 
 # A mapping of class to interface.
 INTERFACES = {cvxopt.matrix: co_intf.DenseMatrixInterface(),
@@ -52,22 +53,22 @@ def is_sparse(constant):
 
 # Get the dimensions of the constant.
 def size(constant):
-    if isinstance(constant, numbers.Number) or np.isscalar(constant):
-        return (1, 1)
+    if isinstance(constant, numbers.Number):
+        return (1,1)
     elif isinstance(constant, list):
         if len(constant) == 0:
             return (0,0)
         elif isinstance(constant[0], numbers.Number): # Vector
             return (len(constant),1)
         else: # Matrix
-            return (len(constant[0]), len(constant))
+            return (len(constant[0]),len(constant))
     elif constant.__class__ in INTERFACES:
         return INTERFACES[constant.__class__].size(constant)
     # Direct all sparse matrices to CSC interface.
     elif is_sparse(constant):
         return INTERFACES[sp.csc_matrix].size(constant)
     else:
-        raise TypeError("%s is not a valid type for a Constant value." % type(constant))
+        raise Exception("%s is not a valid type for a Constant value." % type(constant))
 
 # Is the constant a column vector?
 def is_vector(constant):
@@ -96,7 +97,7 @@ def from_1D_to_2D(constant):
 # Get the value of the passed constant, interpreted as a scalar.
 def scalar_value(constant):
     assert is_scalar(constant)
-    if isinstance(constant, numbers.Number) or np.isscalar(constant):
+    if isinstance(constant, numbers.Number):
         return constant
     elif isinstance(constant, list):
         return constant[0]
@@ -106,7 +107,7 @@ def scalar_value(constant):
     elif is_sparse(constant):
         return INTERFACES[sp.csc_matrix].scalar_value(constant.tocsc())
     else:
-        raise TypeError("%s is not a valid type for a Constant value." % type(constant))
+        raise Exception("%s is not a valid type for a Constant value." % type(constant))
 
 # Return the collective sign of the matrix entries.
 def sign(constant):

@@ -17,11 +17,10 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __future__ import print_function
 from cvxpy import *
 import cvxpy.interface as intf
 import numpy as np
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 import cvxopt
 import numbers
 
@@ -53,7 +52,10 @@ class TestExamples(BaseTest):
         ]
 
         p = Problem(obj, constraints)
-        result = p.solve()
+        result = p.solve(solver=SCS_MAT_FREE, verbose=True,
+                         equil_steps=1, max_iters=5000, equil_p=2,
+                         stoch=True, samples=10,
+                         precond=True)
         self.assertAlmostEqual(result, 0.447214)
         self.assertAlmostEqual(r.value, result)
         self.assertItemsAlmostEqual(x_c.value, [0,0])
@@ -67,7 +69,7 @@ class TestExamples(BaseTest):
         eye = cvxopt.spmatrix(1.0, range(n), range(n))
         P0 = P0.T * P0 + eps * eye
 
-        print(P0)
+        print P0
 
         P1 = cvxopt.normal(n, n)
         P1 = P1.T*P1
@@ -98,21 +100,24 @@ class TestExamples(BaseTest):
         # We now find the primal result and compare it to the dual result
         # to check if strong duality holds i.e. the duality gap is effectively zero
         p = Problem(objective, constraints)
-        primal_result = p.solve()
+        primal_result = p.solve(solver=SCS_MAT_FREE, verbose=True,
+                   equil_steps=1, max_iters=5000, equil_p=2,
+                   stoch=True, samples=10,
+                   precond=True)
 
         # Note that since our data is random, we may need to run this program multiple times to get a feasible primal
         # When feasible, we can print out the following values
-        print(x.value) # solution
+        print x.value # solution
         lam1 = constraints[0].dual_value
         lam2 = constraints[1].dual_value
         lam3 = constraints[2].dual_value
-        print(type(lam1))
+        print type(lam1)
 
         P_lam = P0 + lam1*P1 + lam2*P2 + lam3*P3
         q_lam = q0 + lam1*q1 + lam2*q2 + lam3*q3
         r_lam = r0 + lam1*r1 + lam2*r2 + lam3*r3
         dual_result = -0.5*q_lam.T.dot(P_lam).dot(q_lam) + r_lam
-        print(dual_result.shape)
+        print dual_result.shape
         self.assertEquals(intf.size(dual_result), (1,1))
 
     # Tests examples from the README.
@@ -135,10 +140,10 @@ class TestExamples(BaseTest):
         # The optimal objective is returned by p.solve().
         result = p.solve()
         # The optimal value for x is stored in x.value.
-        print(x.value)
+        print x.value
         # The optimal Lagrange multiplier for a constraint
         # is stored in constraint.dual_value.
-        print(constraints[0].dual_value)
+        print constraints[0].dual_value
 
         ####################################################
 
@@ -233,10 +238,10 @@ class TestExamples(BaseTest):
         result = p.solve()
 
         # The optimal expected return.
-        print(expected_return.value)
+        print expected_return.value
 
         # The optimal risk.
-        print(risk.value)
+        print risk.value
 
         ###########################################
 
@@ -269,57 +274,9 @@ class TestExamples(BaseTest):
             if label*(sample.T*a - b).value < 0:
                 errors += 1
 
-        print("%s misclassifications" % errors)
-        print(a.value)
-        print(b.value)
-
-    def test_advanded(self):
-        """Code from the advanced tutorial.
-        """
-        # Solving a problem with different solvers.
-        x = Variable(2)
-        obj = Minimize(x[0] + norm(x, 1))
-        constraints = [x >= 2]
-        prob = Problem(obj, constraints)
-
-        # Solve with ECOS.
-        prob.solve(solver=ECOS)
-        print("optimal value with ECOS:", prob.value)
-        self.assertAlmostEqual(prob.value, 6)
-
-        # Solve with ECOS_BB.
-        prob.solve(solver=ECOS_BB)
-        print("optimal value with ECOS_BB:", prob.value)
-        self.assertAlmostEqual(prob.value, 6)
-
-        # Solve with CVXOPT.
-        prob.solve(solver=CVXOPT)
-        print("optimal value with CVXOPT:", prob.value)
-        self.assertAlmostEqual(prob.value, 6)
-
-        # Solve with SCS.
-        prob.solve(solver=SCS)
-        print("optimal value with SCS:", prob.value)
-        self.assertAlmostEqual(prob.value, 6, places=3)
-
-        if GLPK in installed_solvers():
-            # Solve with GLPK.
-            prob.solve(solver=GLPK)
-            print("optimal value with GLPK:", prob.value)
-            self.assertAlmostEqual(prob.value, 6)
-
-            # Solve with GLPK_MI.
-            prob.solve(solver=GLPK_MI)
-            print("optimal value with GLPK_MI:", prob.value)
-            self.assertAlmostEqual(prob.value, 6)
-
-        if GUROBI in installed_solvers():
-            # Solve with Gurobi.
-            prob.solve(solver=GUROBI)
-            print("optimal value with GUROBI:", prob.value)
-            self.assertAlmostEqual(prob.value, 6)
-
-        print(installed_solvers())
+        print "%s misclassifications" % errors
+        print a.value
+        print b.value
 
     def test_log_det(self):
         # Generate data
@@ -390,10 +347,10 @@ class TestExamples(BaseTest):
         # The optimal objective is returned by p.solve().
         result = prob.solve()
         # The optimal value for x is stored in x.value.
-        print(x.value)
+        print x.value
         # The optimal Lagrange multiplier for a constraint
         # is stored in constraint.dual_value.
-        print(constraints[0].dual_value)
+        print constraints[0].dual_value
 
         ########################################
 
@@ -411,9 +368,9 @@ class TestExamples(BaseTest):
         # Form and solve problem.
         prob = Problem(obj, constraints)
         prob.solve()  # Returns the optimal value.
-        print("status:", prob.status)
-        print("optimal value", prob.value)
-        print("optimal var", x.value, y.value)
+        print "status:", prob.status
+        print "optimal value", prob.value
+        print "optimal var", x.value, y.value
 
         ########################################
 
@@ -433,9 +390,9 @@ class TestExamples(BaseTest):
         # Form and solve problem.
         prob = cvx.Problem(obj, constraints)
         prob.solve()  # Returns the optimal value.
-        print("status:", prob.status)
-        print("optimal value", prob.value)
-        print("optimal var", x.value, y.value)
+        print "status:", prob.status
+        print "optimal value", prob.value
+        print "optimal var", x.value, y.value
 
         self.assertEqual(prob.status, OPTIMAL)
         self.assertAlmostEqual(prob.value, 1.0)
@@ -446,13 +403,13 @@ class TestExamples(BaseTest):
 
         # Replace the objective.
         prob.objective = Maximize(x + y)
-        print("optimal value", prob.solve())
+        print "optimal value", prob.solve()
 
         self.assertAlmostEqual(prob.value, 1.0)
 
         # Replace the constraint (x + y == 1).
         prob.constraints[0] = (x + y <= 3)
-        print("optimal value", prob.solve())
+        print "optimal value", prob.solve()
 
         self.assertAlmostEqual(prob.value, 3.0)
 
@@ -463,8 +420,8 @@ class TestExamples(BaseTest):
         # An infeasible problem.
         prob = Problem(Minimize(x), [x >= 1, x <= 0])
         prob.solve()
-        print("status:", prob.status)
-        print("optimal value", prob.value)
+        print "status:", prob.status
+        print "optimal value", prob.value
 
         self.assertEquals(prob.status, INFEASIBLE)
         self.assertAlmostEqual(prob.value, np.inf)
@@ -472,8 +429,8 @@ class TestExamples(BaseTest):
         # An unbounded problem.
         prob = Problem(Minimize(x))
         prob.solve()
-        print("status:", prob.status)
-        print("optimal value", prob.value)
+        print "status:", prob.status
+        print "optimal value", prob.value
 
         self.assertEquals(prob.status, UNBOUNDED)
         self.assertAlmostEqual(prob.value, -np.inf)
@@ -505,9 +462,9 @@ class TestExamples(BaseTest):
         constraints = [0 <= x, x <= 1]
         prob = Problem(objective, constraints)
 
-        print("Optimal value", prob.solve())
-        print("Optimal var")
-        print(x.value) # A numpy matrix.
+        print "Optimal value", prob.solve()
+        print "Optimal var"
+        print x.value # A numpy matrix.
 
         self.assertAlmostEqual(prob.value, 4.14133859146)
 
@@ -572,15 +529,15 @@ class TestExamples(BaseTest):
         A = numpy.ones((3, 5))
 
         # Use expr.size to get the dimensions.
-        print("dimensions of X:", X.size)
-        print("dimensions of sum_entries(X):", sum_entries(X).size)
-        print("dimensions of A*X:", (A*X).size)
+        print "dimensions of X:", X.size
+        print "dimensions of sum_entries(X):", sum_entries(X).size
+        print "dimensions of A*X:", (A*X).size
 
         # ValueError raised for invalid dimensions.
         try:
             A + X
-        except ValueError as e:
-            print(e)
+        except ValueError, e:
+            print e
 
     def test_inpainting(self):
         """Test image in-painting.
@@ -596,8 +553,8 @@ class TestExamples(BaseTest):
         # Known is 1 if the pixel is known,
         # 0 if the pixel was corrupted.
         Known = np.zeros((rows, cols))
-        for i in range(rows):
-            for j in range(cols):
+        for i in xrange(rows):
+            for j in xrange(cols):
                 if np.random.random() > 0.7:
                     Known[i, j] = 1
         Ucorr = Known*Uorig
@@ -606,7 +563,12 @@ class TestExamples(BaseTest):
         obj = Minimize(tv(U))
         constraints = [mul_elemwise(Known, U) == mul_elemwise(Known, Ucorr)]
         prob = Problem(obj, constraints)
-        prob.solve(solver=SCS)
+        prob.solve(solver=SCS_MAT_FREE, verbose=True,
+           equil_steps=1, max_iters=5000, equil_p=2,
+           stoch=True, samples=50,
+           precond=True)
+        print prob.status
+        assert False
 
     def test_advanced(self):
         """Test code from the advanced section of the tutorial.
@@ -614,42 +576,21 @@ class TestExamples(BaseTest):
         x = Variable()
         prob = Problem(Minimize(square(x)), [x == 2])
         # Get ECOS arguments.
-        data = prob.get_problem_data(ECOS)
-
-        # Get ECOS_BB arguments.
-        data = prob.get_problem_data(ECOS_BB)
+        c, G, h, dims, A, b = prob.get_problem_data(ECOS)
 
         # Get CVXOPT arguments.
-        data = prob.get_problem_data(CVXOPT)
+        c, G, h, dims, A, b = prob.get_problem_data(CVXOPT)
 
         # Get SCS arguments.
-        data = prob.get_problem_data(SCS)
+        data, dims = prob.get_problem_data(SCS)
 
         import ecos
         # Get ECOS arguments.
-        data = prob.get_problem_data(ECOS)
+        c, G, h, dims, A, b = prob.get_problem_data(ECOS)
         # Call ECOS solver.
-        solver_output = ecos.solve(data["c"], data["G"], data["h"],
-                                   data["dims"], data["A"], data["b"])
+        solver_output = ecos.solve(c, G, h, dims, A, b)
         # Unpack raw solver output.
         prob.unpack_results(ECOS, solver_output)
-
-    def test_log_sum_exp(self):
-        """Test log_sum_exp function that failed in Github issue.
-        """
-        import cvxpy as cp
-        import numpy as np
-        np.random.seed(1)
-        m = 5
-        n = 2
-        X = np.matrix(np.ones((m,n)))
-        w = cp.Variable(n)
-
-        expr2 = [cp.log_sum_exp(cp.vstack(0, X[i,:]*w)) for i in range(m)]
-        expr3 = sum(expr2)
-        obj = cp.Minimize(expr3)
-        p = cp.Problem(obj)
-        p.solve(solver=SCS, max_iters=1)
 
     # # Risk return tradeoff curve
     # def test_risk_return_tradeoff(self):

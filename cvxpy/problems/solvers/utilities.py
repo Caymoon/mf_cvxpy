@@ -20,20 +20,8 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 from cvxpy.problems.solvers.ecos_intf import ECOS
 from cvxpy.problems.solvers.ecos_bb_intf import ECOS_BB
 from cvxpy.problems.solvers.cvxopt_intf import CVXOPT
-from cvxpy.problems.solvers.glpk_intf import GLPK
-from cvxpy.problems.solvers.glpk_mi_intf import GLPK_MI
 from cvxpy.problems.solvers.scs_intf import SCS
-from cvxpy.problems.solvers.gurobi_intf import GUROBI
+from cvxpy.problems.solvers.scs_mat_free_intf import SCS_MAT_FREE
 
-solver_intf = [ECOS(), ECOS_BB(), CVXOPT(), GLPK(),
-               GLPK_MI(), SCS(), GUROBI()]
+solver_intf = [ECOS(), ECOS_BB(), CVXOPT(), SCS(), SCS_MAT_FREE()]
 SOLVERS = {solver.name():solver for solver in solver_intf}
-
-def installed_solvers():
-    """List the installed solvers.
-    """
-    installed = []
-    for name, solver in SOLVERS.items():
-        if solver.is_installed():
-            installed.append(name)
-    return installed

@@ -37,7 +37,6 @@ class Variable(Leaf):
             self._name = name
         self.primal_value = None
         self.init_dcp_attr()
-        super(Variable, self).__init__()
 
     def init_dcp_attr(self):
         """Determines the curvature, sign, and shape from the arguments.
@@ -49,9 +48,8 @@ class Variable(Leaf):
     def name(self):
         return self._name
 
+    # Save the value of the primal variable.
     def save_value(self, value):
-        """Save the value of the primal variable.
-        """
         self.primal_value = value
 
     @property

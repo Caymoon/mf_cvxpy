@@ -25,8 +25,8 @@ from cvxpy.lin_ops.lin_op import VARIABLE
 import cvxpy.utilities.performance_utils as pu
 from cvxpy.constraints.nonlinear import NonlinearConstraint
 from cvxpy.constraints.utilities import format_elemwise
-import math
 import cvxopt
+import math
 
 class ExpCone(NonlinearConstraint):
     """A reformulated exponential cone constraint.
@@ -76,7 +76,7 @@ class ExpCone(NonlinearConstraint):
         """
         if solver.name() == s.CVXOPT:
             eq_constr += self.__CVXOPT_format[0]
-        elif solver.name() == s.SCS:
+        elif solver.name() in [s.SCS, s.SCS_MAT_FREE]:
             leq_constr += self.__SCS_format[1]
         else:
             raise SolverError("Solver does not support exponential cone.")

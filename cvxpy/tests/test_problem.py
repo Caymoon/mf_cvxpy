@@ -17,31 +17,28 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from fractions import Fraction
 import cvxpy.settings as s
 from cvxpy.atoms import *
 from cvxpy.expressions.constants import Constant, Parameter
-from cvxpy.expressions.variables import Variable, Semidef, Bool
+from cvxpy.expressions.variables import Variable, Semidef, BoolVar
 from cvxpy.problems.objective import *
 from cvxpy.problems.problem import Problem
-from cvxpy.problems.solvers.utilities import SOLVERS, installed_solvers
+from cvxpy.problems.solvers.utilities import SOLVERS
 from cvxpy.problems.problem_data.sym_data import SymData
 import cvxpy.interface as intf
 import cvxpy.lin_ops.lin_utils as lu
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 from cvxopt import matrix
 from numpy import linalg as LA
 import numpy
+import unittest
+import math
 import sys
+from cStringIO import StringIO
 # Solvers.
 import scs
 import cvxopt.solvers
 import ecos
-PY2 = sys.version_info < (3, 0)
-if sys.version_info < (3, 0):
-    from cStringIO import StringIO
-else:
-    from io import StringIO
 
 class TestProblem(BaseTest):
     """ Unit tests for the expression/expression module. """
@@ -78,11 +75,7 @@ class TestProblem(BaseTest):
         """
         p = Problem(Minimize(self.a), [self.a <= self.x, self.b <= self.A + 2])
         vars_ = p.variables()
-        ref = [self.a, self.x, self.b, self.A]
-        if PY2:
-            self.assertItemsEqual(vars_, ref)
-        else:
-            self.assertCountEqual(vars_, ref)
+        self.assertItemsEqual(vars_, [self.a, self.x, self.b, self.A])
 
     def test_parameters(self):
         """Test the parameters method.
@@ -92,11 +85,7 @@ class TestProblem(BaseTest):
         p3 = Parameter(4, 4, sign="positive")
         p = Problem(Minimize(p1), [self.a + p1 <= p2, self.b <= p3 + p3 + 2])
         params = p.parameters()
-        ref = [p1, p2, p3]
-        if PY2:
-            self.assertItemsEqual(params, ref)
-        else:
-            self.assertCountEqual(params, ref)
+        self.assertItemsEqual(params, [p1, p2, p3])
 
     def test_get_problem_data(self):
         """Test get_problem_data method.
@@ -105,25 +94,25 @@ class TestProblem(BaseTest):
             Problem(Maximize(exp(self.a))).get_problem_data(s.ECOS)
         self.assertEqual(str(cm.exception), "The solver ECOS cannot solve the problem.")
 
-        data = Problem(Maximize(exp(self.a) + 2)).get_problem_data(s.SCS)
-        dims = data["dims"]
+        args = Problem(Maximize(exp(self.a) + 2)).get_problem_data(s.SCS)
+        data, dims = args
         self.assertEqual(dims['ep'], 1)
         self.assertEqual(data["c"].shape, (2,))
         self.assertEqual(data["A"].shape, (3, 2))
 
-        data = Problem(Minimize(norm(self.x) + 3)).get_problem_data(s.ECOS)
-        dims = data["dims"]
+        args = Problem(Minimize(norm(self.x) + 3)).get_problem_data(s.ECOS)
+        c, G, h, dims, A, b = args
         self.assertEqual(dims["q"], [3])
-        self.assertEqual(data["c"].shape, (3,))
-        self.assertEqual(data["A"].shape, (0, 3))
-        self.assertEqual(data["G"].shape, (3, 3))
+        self.assertEqual(c.shape, (3,))
+        self.assertEqual(A.shape, (0, 3))
+        self.assertEqual(G.shape, (3, 3))
 
-        data = Problem(Minimize(norm(self.x) + 3)).get_problem_data(s.CVXOPT)
-        dims = data["dims"]
+        args = Problem(Minimize(norm(self.x) + 3)).get_problem_data(s.CVXOPT)
+        c, G, h, dims, A, b = args
         self.assertEqual(dims["q"], [3])
-        self.assertEqual(data["c"].size, (3, 1))
-        self.assertEqual(data["A"].size, (0, 3))
-        self.assertEqual(data["G"].size, (3, 3))
+        self.assertEqual(c.size, (3, 1))
+        self.assertEqual(A.size, (0, 3))
+        self.assertEqual(G.size, (3, 3))
 
     def test_unpack_results(self):
         """Test unpack results method.
@@ -134,8 +123,7 @@ class TestProblem(BaseTest):
 
         prob = Problem(Minimize(exp(self.a)), [self.a == 0])
         args = prob.get_problem_data(s.SCS)
-        data = {"c": args["c"], "A": args["A"], "b": args["b"]}
-        results_dict = scs.solve(data, args["dims"])
+        results_dict = scs.solve(*args)
         prob = Problem(Minimize(exp(self.a)), [self.a == 0])
         prob.unpack_results(s.SCS, results_dict)
         self.assertAlmostEqual(self.a.value, 0, places=4)
@@ -144,8 +132,7 @@ class TestProblem(BaseTest):
 
         prob = Problem(Minimize(norm(self.x)), [self.x == 0])
         args = prob.get_problem_data(s.ECOS)
-        results_dict = ecos.solve(args["c"], args["G"], args["h"],
-                                  args["dims"], args["A"], args["b"])
+        results_dict = ecos.solve(*args)
         prob = Problem(Minimize(norm(self.x)), [self.x == 0])
         prob.unpack_results(s.ECOS, results_dict)
         self.assertItemsAlmostEqual(self.x.value, [0,0])
@@ -154,8 +141,7 @@ class TestProblem(BaseTest):
 
         prob = Problem(Minimize(norm(self.x)), [self.x == 0])
         args = prob.get_problem_data(s.CVXOPT)
-        results_dict = cvxopt.solvers.conelp(args["c"], args["G"], args["h"],
-                                             args["dims"], args["A"], args["b"])
+        results_dict = cvxopt.solvers.conelp(*args)
         prob = Problem(Minimize(norm(self.x)), [self.x == 0])
         prob.unpack_results(s.CVXOPT, results_dict)
         self.assertItemsAlmostEqual(self.x.value, [0,0])
@@ -164,58 +150,33 @@ class TestProblem(BaseTest):
 
     # Test silencing and enabling solver messages.
     def test_verbose(self):
-        import sys
         # From http://stackoverflow.com/questions/5136611/capture-stdout-from-a-script-in-python
         # setup the environment
         outputs = {True: [], False: []}
         backup = sys.stdout
+
         # ####
         for verbose in [True, False]:
-            for solver in installed_solvers():
-                # Don't test GLPK because there's a race
-                # condition in setting CVXOPT solver options.
-                if solver in ["GLPK", "GLPK_MI"]:
-                    continue
-                # if solver == "GLPK":
-                #     # GLPK's stdout is separate from python,
-                #     # so we have to do this.
-                #     # Note: This probably breaks (badly) on Windows.
-                #     import os
-                #     import tempfile
-
-                #     stdout_fd = 1
-                #     tmp_handle = tempfile.TemporaryFile(bufsize = 0)
-                #     os.dup2(tmp_handle.fileno(), stdout_fd)
-                # else:
-                sys.stdout = StringIO() # capture output
-
-                p = Problem(Minimize(self.a + self.x[0]),
-                                     [self.a >= 2, self.x >= 2])
-                if SOLVERS[solver].MIP_CAPABLE:
-                    p.constraints.append(Bool() == 0)
+            for solver in s.SOLVERS:
+                sys.stdout = StringIO()     # capture output
+                p = Problem(Minimize(self.a + self.x[0]), [self.a >= 2, self.x >= 2])
+                if solver in s.MIP_CAPABLE:
+                    p.constraints.append(BoolVar() == 0)
                 p.solve(verbose=verbose, solver=solver)
-                if SOLVERS[solver].EXP_CAPABLE:
+                if solver in s.EXP_CAPABLE:
                     p = Problem(Minimize(self.a), [log(self.a) >= 2])
                     p.solve(verbose=verbose, solver=solver)
-
-                # if solver == "GLPK":
-                #     # GLPK's stdout is separate from python,
-                #     # so we have to do this.
-                #     tmp_handle.seek(0)
-                #     out = tmp_handle.read()
-                #     tmp_handle.close()
-                # else:
                 out = sys.stdout.getvalue() # release output
-
-                outputs[verbose].append((out, solver))
+                outputs[verbose].append(out.upper())
         # ####
+
         sys.stdout.close()  # close the stream
         sys.stdout = backup # restore original stdout
-        for output, solver in outputs[True]:
-            print(solver)
+
+        for output in outputs[True]:
             assert len(output) > 0
-        for output, solver in outputs[False]:
-            print(solver)
+        for output in outputs[False]:
+            print output
             assert len(output) == 0
 
     # Test registering other solve methods.
@@ -260,7 +221,7 @@ class TestProblem(BaseTest):
             sym_data = SymData(objective, constraints, SOLVERS[s.ECOS])
             # Sort by offset.
             vars_ = sorted(sym_data.var_offsets.items(),
-                key=lambda key_val: key_val[1])
+                key=lambda (var_id, offset): offset)
             vars_ = [var_id for (var_id, offset) in vars_]
             vars_lists.append(vars_)
             ineqs_lists.append(sym_data.constr_map[s.LEQ])
@@ -295,7 +256,7 @@ class TestProblem(BaseTest):
         obj = sum_entries(X + X)
         p = Problem(Minimize(obj))
         result = p.solve(method="test")
-        self.assertEqual(result, (0, 1))
+        self.assertEqual(result, (1, 1))
 
         # Duplicates from non-linear constraints.
         exp = norm(self.x, 2)
@@ -412,7 +373,7 @@ class TestProblem(BaseTest):
         result = p.solve()
         self.assertAlmostEqual(result, 26, places=3)
         obj = c.T*self.x.value + self.a.value
-        self.assertAlmostEqual(obj[0,0], result)
+        self.assertAlmostEqual(obj[0], result)
         self.assertItemsAlmostEqual(self.x.value, [8,8], places=3)
         self.assertItemsAlmostEqual(self.z.value, [2,2], places=3)
 
@@ -445,6 +406,16 @@ class TestProblem(BaseTest):
 
         # Test variables are dense.
         self.assertEqual(type(self.A.value), intf.DEFAULT_INTERFACE.TARGET_MATRIX)
+
+    def test_matrix_socp(self):
+        """Test matrix SOCP.
+        """
+        A = numpy.ones((10, 10))
+        X = Variable(10, 10)
+        cost = norm(X - 1, 'fro')
+        prob = Problem(Minimize(cost), [A*X >= 2])
+        result = prob.solve(solver=s.ECOS)
+        self.assertAlmostEqual(result, 0)
 
     # Test variable promotion.
     def test_variable_promotion(self):
@@ -517,8 +488,8 @@ class TestProblem(BaseTest):
         p = Problem(Minimize(normInf(self.x - self.z) + 5),
             [self.x >= [2,3], self.z <= [-1,-4]])
         result = p.solve()
-        self.assertAlmostEqual(float(result), 12)
-        self.assertAlmostEqual(float(list(self.x.value)[1] - list(self.z.value)[1]), 7)
+        self.assertAlmostEqual(result, 12)
+        self.assertAlmostEqual(list(self.x.value)[1] - list(self.z.value)[1], 7)
 
     # Test problems with norm1
     def test_norm1(self):
@@ -543,8 +514,8 @@ class TestProblem(BaseTest):
         p = Problem(Minimize(norm1(self.x - self.z) + 5),
             [self.x >= [2,3], self.z <= [-1,-4]])
         result = p.solve()
-        self.assertAlmostEqual(float(result), 15)
-        self.assertAlmostEqual(float(list(self.x.value)[1] - list(self.z.value)[1]), 7)
+        self.assertAlmostEqual(result, 15)
+        self.assertAlmostEqual(list(self.x.value)[1] - list(self.z.value)[1], 7)
 
     # Test problems with norm2
     def test_norm2(self):
@@ -1113,9 +1084,7 @@ class TestProblem(BaseTest):
         x = Variable()
         obj = Maximize(sqrt(x))
         prob = Problem(obj)
-        data = prob.get_problem_data(s.ECOS)
-        A = data["A"]
-        G = data["G"]
+        c, G, h, dims, A, b = prob.get_problem_data(s.ECOS)
         for row in range(A.shape[0]):
             assert A[row, :].nnz > 0
         for row in range(G.shape[0]):
@@ -1168,110 +1137,7 @@ class TestProblem(BaseTest):
         self.assertAlmostEqual(prob.value, 1)
 
     def test_geo_mean(self):
-        import numpy as np
-
-        x = Variable(2)
-        cost = geo_mean(x)
-        prob = Problem(Maximize(cost), [x <= 1])
+        cost = sum_entries(geo_mean(self.x, 1))
+        prob = Problem(Maximize(cost), [self.x == 1])
         prob.solve()
-        self.assertAlmostEqual(prob.value, 1)
-
-        prob = Problem(Maximize(cost), [sum(x) <= 1])
-        prob.solve()
-        self.assertItemsAlmostEqual(x.value, [.5, .5])
-
-        x = Variable(3, 3)
-        self.assertRaises(ValueError, geo_mean, x)
-
-        x = Variable(3, 1)
-        g = geo_mean(x)
-        self.assertSequenceEqual(g.w, [Fraction(1, 3)]*3)
-
-        x = Variable(1, 5)
-        g = geo_mean(x)
-        self.assertSequenceEqual(g.w, [Fraction(1, 5)]*5)
-
-        # check that we get the right answer for
-        # max geo_mean(x) s.t. sum(x) <= 1
-        p = np.array([.07, .12, .23, .19, .39])
-
-        def short_geo_mean(x, p):
-            p = np.array(p)/sum(p)
-            x = np.array(x)
-            return np.prod(x**p)
-
-        x = Variable(5)
-        prob = Problem(Maximize(geo_mean(x, p)), [sum(x) <= 1])
-        prob.solve()
-        x = np.array(x.value).flatten()
-        x_true = p/sum(p)
-
-        self.assertTrue(np.allclose(prob.value, geo_mean(list(x), p).value))
-        self.assertTrue(np.allclose(prob.value, short_geo_mean(x, p)))
-        self.assertTrue(np.allclose(x, x_true, 1e-3))
-
-        # check that we get the right answer for
-        # max geo_mean(x) s.t. norm(x) <= 1
-        x = Variable(5)
-        prob = Problem(Maximize(geo_mean(x, p)), [norm(x) <= 1])
-        prob.solve()
-        x = np.array(x.value).flatten()
-        x_true = np.sqrt(p/sum(p))
-
-        self.assertTrue(np.allclose(prob.value, geo_mean(list(x), p).value))
-        self.assertTrue(np.allclose(prob.value, short_geo_mean(x, p)))
-        self.assertTrue(np.allclose(x, x_true, 1e-3))
-
-    def test_pnorm(self):
-        import numpy as np
-
-        x = Variable(3, name='x')
-
-        a = np.array([1.0, 2, 3])
-
-        # todo: add -1, .5, .3, -2.3 and testing positivity constraints
-
-        for p in (1, 1.6, 1.3, 2, 1.99, 3, 3.7, np.inf):
-            prob = Problem(Minimize(pnorm(x, p=p)), [x.T*a >= 1])
-            prob.solve()
-
-            # formula is true for any a >= 0 with p > 1
-            if p == np.inf:
-                x_true = np.ones_like(a)/sum(a)
-            elif p == 1:
-                # only works for the particular a = [1,2,3]
-                x_true = np.array([0, 0, 1.0/3])
-            else:
-                x_true = a**(1.0/(p-1))/a.dot(a**(1.0/(p-1)))
-
-            x_alg = np.array(x.value).flatten()
-            self.assertTrue(np.allclose(x_alg, x_true, 1e-3), 'p = {}'.format(p))
-            self.assertTrue(np.allclose(prob.value, np.linalg.norm(x_alg, p)))
-            self.assertTrue(np.allclose(np.linalg.norm(x_alg, p), pnorm(x_alg, p).value))
-
-    def test_pnorm_concave(self):
-        import numpy as np
-
-        x = Variable(3, name='x')
-
-        # test positivity constraints
-        a = np.array([-1.0, 2, 3])
-        for p in (-1, .5, .3, -2.3):
-            prob = Problem(Minimize(sum_entries(abs(x-a))), [pnorm(x, p) >= 0])
-            prob.solve()
-
-            self.assertTrue(np.allclose(prob.value, 1))
-
-        a = np.array([1.0, 2, 3])
-        for p in (-1, .5, .3, -2.3):
-            prob = Problem(Minimize(sum_entries(abs(x-a))), [pnorm(x, p) >= 0])
-            prob.solve()
-
-            self.assertTrue(np.allclose(prob.value, 0))
-
-    def test_power(self):
-        x = Variable()
-        prob = Problem(Minimize(power(x, 1.7) + power(x, -2.3) - power(x, .45)))
-        prob.solve()
-        x = x.value
-        self.assertTrue(__builtins__['abs'](1.7*x**.7 - 2.3*x**-3.3 - .45*x**-.55) <= 1e-3)
+        self.assertAlmostEqual(prob.value, 2)

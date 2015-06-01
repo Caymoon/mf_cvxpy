@@ -28,9 +28,6 @@ class Leaf(expression.Expression):
 
     __metaclass__ = abc.ABCMeta
 
-    def __init__(self):
-        self.args = []
-
     def variables(self):
         """Default is empty list of Variables.
         """

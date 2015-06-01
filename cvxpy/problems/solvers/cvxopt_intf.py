@@ -21,33 +21,32 @@ import cvxpy.interface as intf
 import cvxpy.settings as s
 from cvxpy.problems.solvers.solver import Solver
 from cvxpy.problems.kktsolver import get_kktsolver
+import cvxopt
+import cvxopt.solvers
+import time
 
 class CVXOPT(Solver):
     """An interface for the CVXOPT solver.
     """
-
-    # Solver capabilities.
-    LP_CAPABLE = True
-    SOCP_CAPABLE = True
-    SDP_CAPABLE = True
-    EXP_CAPABLE = True
-    MIP_CAPABLE = False
-
-    # Map of CVXOPT status to CVXPY status.
-    STATUS_MAP = {'optimal': s.OPTIMAL,
-                  'primal infeasible': s.INFEASIBLE,
-                  'dual infeasible': s.UNBOUNDED,
-                  'unknown': s.SOLVER_ERROR}
-
     def name(self):
         """The name of the solver.
         """
         return s.CVXOPT
 
-    def import_solver(self):
-        """Imports the solver.
+    def sdp_capable(self):
+        """Can the solver handle SDPs?
         """
-        import cvxopt
+        return True
+
+    def exp_capable(self):
+        """Can the solver handle the exponential cone?
+        """
+        return True
+
+    def mip_capable(self):
+        """Can the solver handle boolean or integer variables?
+        """
+        return False
 
     def matrix_intf(self):
         """The interface for matrices passed to the solver.
@@ -74,8 +73,15 @@ class CVXOPT(Solver):
         """
         return (constr_map[s.EQ], constr_map[s.LEQ], constr_map[s.EXP])
 
-    def solve(self, objective, constraints, cached_data,
-              warm_start, verbose, solver_opts):
+    def _shape_args(self, c, A, b, G, h, F, dims):
+        """Returns the arguments that will be passed to the solver.
+        """
+        if dims[s.EXP_DIM]:
+            return (c, F, G, h, dims, A, b)
+        else:
+            return (c, G, h, dims, A, b)
+
+    def solve(self, objective, constraints, cached_data, verbose, solver_opts):
         """Returns the result of the call to the solver.
 
         Parameters
@@ -86,8 +92,6 @@ class CVXOPT(Solver):
             The list of canonicalized cosntraints.
         cached_data : dict
             A map of solver name to cached problem data.
-        warm_start : bool
-            Not used.
         verbose : bool
             Should the solver print output?
         solver_opts : dict
@@ -98,14 +102,17 @@ class CVXOPT(Solver):
         tuple
             (status, optimal value, primal, equality dual, inequality dual)
         """
-        import cvxopt, cvxopt.solvers
-        data = self.get_problem_data(objective, constraints, cached_data)
+        prob_data = self.get_problem_data(objective, constraints, cached_data)
+        dims = prob_data[0][-3] # TODO this is a hack.
+        obj_offset = prob_data[1]
+        # Save original cvxopt solver options.
+        old_options = cvxopt.solvers.options
         # User chosen KKT solver option.
         kktsolver = self.get_kktsolver_opt(solver_opts)
-        # Save original cvxopt solver options.
-        old_options = cvxopt.solvers.options.copy()
         # Silence cvxopt if verbose is False.
-        cvxopt.solvers.options["show_progress"] = verbose
+        cvxopt.solvers.options['show_progress'] = verbose
+        # Always do one step of iterative refinement after solving KKT system.
+        cvxopt.solvers.options['refinement'] = 1
 
         # Apply any user-specific options.
         # Rename max_iters to maxiters.
@@ -114,56 +121,34 @@ class CVXOPT(Solver):
         for key, value in solver_opts.items():
             cvxopt.solvers.options[key] = value
 
-        # Always do 1 step of iterative refinement after solving KKT system.
-        if not "refinement" in cvxopt.solvers.options:
-            cvxopt.solvers.options["refinement"] = 1
-
+        # Record the solve time.
+        start = time.time()
         try:
-            # Target cvxopt clp if nonlinear constraints exist.
-            if data[s.DIMS][s.EXP_DIM]:
+            # Target cvxopt clp if nonlinear constraints exist
+            if dims[s.EXP_DIM]:
+                _, F, G, _, dims, A, _ = prob_data[0]
                 if kktsolver is None:
                     # Get custom kktsolver.
-                    kktsolver = get_kktsolver(data[s.G],
-                                              data[s.DIMS],
-                                              data[s.A],
-                                              data[s.F])
-                results_dict = cvxopt.solvers.cpl(data[s.C],
-                                                  data[s.F],
-                                                  data[s.G],
-                                                  data[s.H],
-                                                  data[s.DIMS],
-                                                  data[s.A],
-                                                  data[s.B],
+                    kktsolver = get_kktsolver(G, dims, A, F)
+                results_dict = cvxopt.solvers.cpl(*prob_data[0],
                                                   kktsolver=kktsolver)
             else:
+                _, G, _, dims, A, _ = prob_data[0]
                 if kktsolver is None:
                     # Get custom kktsolver.
-                    kktsolver = get_kktsolver(data[s.G],
-                                              data[s.DIMS],
-                                              data[s.A])
-                results_dict = cvxopt.solvers.conelp(data[s.C],
-                                                     data[s.G],
-                                                     data[s.H],
-                                                     data[s.DIMS],
-                                                     data[s.A],
-                                                     data[s.B],
+                    kktsolver = get_kktsolver(G, dims, A)
+                results_dict = cvxopt.solvers.conelp(*prob_data[0],
                                                      kktsolver=kktsolver)
         # Catch exceptions in CVXOPT and convert them to solver errors.
         except ValueError:
-            results_dict = {"status": "unknown"}
+            results_dict = {'status': 'unknown'}
+
+        end = time.time()
+        results_dict[s.SOLVE_TIME] = end - start
 
         # Restore original cvxopt solver options.
-        self._restore_solver_options(old_options)
-        return self.format_results(results_dict, data, cached_data)
-
-    @staticmethod
-    def _restore_solver_options(old_options):
-        import cvxopt.solvers
-        for key, value in list(cvxopt.solvers.options.items()):
-            if key in old_options:
-                cvxopt.solvers.options[key] = old_options[key]
-            else:
-                del cvxopt.solvers.options[key]
+        cvxopt.solvers.options = old_options
+        return self.format_results(results_dict, dims, obj_offset)
 
     @staticmethod
     def get_kktsolver_opt(solver_opts):
@@ -188,17 +173,17 @@ class CVXOPT(Solver):
             kktsolver = None
         return kktsolver
 
-    def format_results(self, results_dict, data, cached_data):
+    def format_results(self, results_dict, dims, obj_offset=0):
         """Converts the solver output into standard form.
 
         Parameters
         ----------
         results_dict : dict
             The solver output.
-        data : dict
-            Information about the problem.
-        cached_data : dict
-            A map of solver name to cached problem data.
+        dims : dict
+            The cone dimensions in the canonicalized problem.
+        obj_offset : float, optional
+            The constant term in the objective.
 
         Returns
         -------
@@ -206,14 +191,15 @@ class CVXOPT(Solver):
             The solver output in standard form.
         """
         new_results = {}
-        status = self.STATUS_MAP[results_dict['status']]
+        status = s.SOLVER_STATUS[s.CVXOPT][results_dict['status']]
         new_results[s.STATUS] = status
+        new_results[s.SOLVE_TIME] = results_dict[s.SOLVE_TIME]
         if new_results[s.STATUS] in s.SOLUTION_PRESENT:
             primal_val = results_dict['primal objective']
-            new_results[s.VALUE] = primal_val + data[s.OFFSET]
+            new_results[s.VALUE] = primal_val + obj_offset
             new_results[s.PRIMAL] = results_dict['x']
             new_results[s.EQ_DUAL] = results_dict['y']
-            if data[s.DIMS][s.EXP_DIM]:
+            if dims[s.EXP_DIM]:
                 new_results[s.INEQ_DUAL] = results_dict['zl']
             else:
                 new_results[s.INEQ_DUAL] = results_dict['z']

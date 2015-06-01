@@ -17,12 +17,11 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 from .. import base_matrix_interface as base
 import numpy
+import cvxopt
 import numbers
 import scipy.sparse
-import cvxopt
 
 class NDArrayInterface(base.BaseMatrixInterface):
     """
@@ -49,8 +48,6 @@ class NDArrayInterface(base.BaseMatrixInterface):
             value = value.T
         elif scipy.sparse.issparse(value):
             value = value.A
-        elif isinstance(value, numpy.matrix):
-            value = value.A
         return numpy.atleast_2d(value)
 
     # Return an identity matrix.
@@ -59,9 +56,10 @@ class NDArrayInterface(base.BaseMatrixInterface):
 
     # Return the dimensions of the matrix.
     def size(self, matrix):
-        # 1D arrays are treated as column vectors.
+        # Slicing drops the second dimension.
         if len(matrix.shape) == 1:
-            return (matrix.size, 1)
+            dim = matrix.shape[0]
+            return (dim, matrix.size/dim)
         else:
             return matrix.shape
 

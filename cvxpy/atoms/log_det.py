@@ -34,18 +34,10 @@ class log_det(Atom):
     def __init__(self, A):
         super(log_det, self).__init__(A)
 
+    # Returns the nuclear norm (i.e. the sum of the singular values) of A.
     @Atom.numpy_numeric
     def numeric(self, values):
-        """Returns the logdet of SDP matrix A.
-
-        For SDP matrix A, this is the sum of logs of eigenvalues of A
-        and is equivalent to the nuclear norm of the matrix logarithm of A.
-        """
-        sign, logdet = LA.slogdet(values[0])
-        if sign == 1:
-            return logdet
-        else:
-            return -np.inf
+        return np.log(LA.det(values[0]))
 
     # Resolves to a scalar.
     def shape_from_args(self):
@@ -114,22 +106,31 @@ class log_det(Atom):
         n, _ = A.size
         X = lu.create_var((2*n, 2*n))
         Z = lu.create_var((n, n))
-        D = lu.create_var((n, 1))
+        D = lu.create_var((n, n))
         # Require that X and A are PSD.
         constraints = [SDP(X), SDP(A)]
         # Fix Z as upper triangular, D as diagonal,
         # and diag(D) as diag(Z).
-        Z_lower_tri = lu.upper_tri(lu.transpose(Z))
-        constraints.append(lu.create_eq(Z_lower_tri))
+        for i in xrange(n):
+            for j in xrange(n):
+                if i != j:
+                    # D[i, j] == 0
+                    Dij = index.get_index(D, constraints, i, j)
+                    constraints.append(lu.create_eq(Dij))
+                if i > j:
+                    # Z[i, j] == 0
+                    Zij = index.get_index(Z, constraints, i, j)
+                    constraints.append(lu.create_eq(Zij))
         # D[i, i] = Z[i, i]
-        constraints.append(lu.create_eq(D, lu.diag_mat(Z)))
+        constraints.append(lu.create_eq(lu.diag_mat(D), lu.diag_mat(Z)))
         # Fix X using the fact that A must be affine by the DCP rules.
         # X[0:n, 0:n] == D
-        index.block_eq(X, lu.diag_vec(D), constraints, 0, n, 0, n)
+        index.block_eq(X, D, constraints, 0, n, 0, n)
         # X[0:n, n:2*n] == Z,
         index.block_eq(X, Z, constraints, 0, n, n, 2*n)
         # X[n:2*n, n:2*n] == A
         index.block_eq(X, A, constraints, n, 2*n, n, 2*n)
         # Add the objective sum(log(D[i, i])
-        obj, constr = log.graph_implementation([D], (n, 1))
+        diag = lu.diag_mat(D)
+        obj, constr = log.graph_implementation([diag], (n, 1))
         return (lu.sum_entries(obj), constraints + constr)

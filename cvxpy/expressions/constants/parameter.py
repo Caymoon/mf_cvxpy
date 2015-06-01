@@ -17,13 +17,13 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from cvxpy import settings as s
-from cvxpy import utilities as u
-from cvxpy import interface as intf
-from cvxpy.expressions.leaf import Leaf
+from ... import settings as s
+from ... import utilities as u
+from ... import interface as intf
+from constant import Constant
 import cvxpy.lin_ops.lin_utils as lu
 
-class Parameter(Leaf):
+class Parameter(Constant):
     """
     A parameter, either matrix or scalar.
     """
@@ -41,7 +41,6 @@ class Parameter(Leaf):
         # Initialize with value if provided.
         if value is not None:
             self.value = value
-        super(Parameter, self).__init__()
 
     def name(self):
         return self._name

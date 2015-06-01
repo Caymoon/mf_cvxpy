@@ -22,13 +22,12 @@ from cvxpy.expressions.expression import *
 from cvxpy.expressions.variables import Variable
 from cvxpy.expressions.constants import Constant
 from cvxpy.expressions.constants import Parameter
-from cvxpy import Problem, Minimize
 import cvxpy.utilities as u
 import cvxpy.interface.matrix_utilities as intf
 import cvxpy.settings as s
 from collections import deque
 import unittest
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 from cvxopt import matrix
 import numpy as np
 import warnings
@@ -179,14 +178,23 @@ class TestExpressions(BaseTest):
         # Test repr.
         self.assertEqual(repr(c), "Constant(CONSTANT, POSITIVE, (2, 1))")
 
-    def test_1D_array(self):
-        """Test NumPy 1D arrays as constants.
-        """
-        c = np.array([1,2])
-        p = Parameter(2)
-        p.value = [1,1]
-        self.assertEquals((c*p).value, 3)
-        self.assertEqual((c*self.x).size, (1,1))
+    # def test_1D_array(self):
+    #     """Test NumPy 1D arrays as constants.
+    #     """
+    #     c = np.array([1,2])
+    #     p = Parameter(2)
+
+    #     with warnings.catch_warnings(record=True) as w:
+    #         # Cause all warnings to always be triggered.
+    #         warnings.simplefilter("always")
+    #         # Trigger a warning.
+    #         Constant(c)
+    #         self.x + c
+    #         p.value = c
+    #         # Verify some things
+    #         self.assertEqual(len(w), 3)
+    #         for warning in w:
+    #             self.assertEqual(str(warning.message), "NumPy 1D arrays are treated as column vectors.")
 
     # Test the Parameter class.
     def test_parameters(self):
@@ -338,13 +346,10 @@ class TestExpressions(BaseTest):
         exp = [[1], [2]] + c*self.C
         self.assertEqual(exp.sign, u.Sign.UNKNOWN_KEY)
 
-        # Scalar constants on the right should be moved left.
+        # Scalar constants on the right should be moved left
+        # instead of taking the transpose.
         expr = self.C*2
-        self.assertEqual(expr.args[0].value, 2)
-
-        # Scalar variables on the left should be moved right.
-        expr = self.a*[2,1]
-        self.assertItemsAlmostEqual(expr.args[0].value, [2,1])
+        self.assertEqual(expr.args[1].value, 2)
 
     # Test the DivExpresion class.
     def test_div_expression(self):
@@ -359,7 +364,7 @@ class TestExpressions(BaseTest):
 
         with self.assertRaises(Exception) as cm:
             (self.x/[2,2,3])
-        print(cm.exception)
+        print cm.exception
         self.assertEqual(str(cm.exception), "Can only divide by a scalar constant.")
 
         # Constant expressions.
@@ -540,20 +545,6 @@ class TestExpressions(BaseTest):
         self.assertEquals(exp.size, (2, 1))
         self.assertEquals(exp.curvature, u.Curvature.CONSTANT_KEY)
 
-        c = Constant([1,2,3,4])
-        exp = c[::-1]
-        self.assertItemsAlmostEqual(exp.value, [4, 3, 2, 1])
-        self.assertEquals(exp.size, (4, 1))
-        self.assertEquals(exp.curvature, u.Curvature.CONSTANT_KEY)
-
-        x = Variable(4)
-        Problem(Minimize(0), [x[::-1] == c]).solve()
-        self.assertItemsAlmostEqual(x.value, [4, 3, 2, 1])
-        self.assertEquals(x[::-1].size, (4, 1))
-
-        x = Variable(2)
-        self.assertEquals(x[::-1].size, (2, 1))
-
     def test_logical_indices(self):
         """Test indexing with logical arrays.
         """
@@ -566,14 +557,7 @@ class TestExpressions(BaseTest):
         self.assertEqual(exp.curvature, u.Curvature.CONCAVE_KEY)
         exp = self.x**-1
         self.assertEqual(exp.curvature, u.Curvature.CONVEX_KEY)
+        with self.assertRaises(Exception) as cm:
+            (self.x**3)
+        self.assertEqual(str(cm.exception), "Invalid power: 3.")
 
-    def test_sum(self):
-        """Test built-in sum. Not good usage.
-        """
-        self.a.value = 1
-        expr = sum(self.a)
-        self.assertEquals(expr.value, 1)
-
-        self.x.value = [1, 2]
-        expr = sum(self.x)
-        self.assertEquals(expr.value, 3)

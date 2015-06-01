@@ -1,7 +1,6 @@
 from cvxpy import *
 from mixed_integer import *
 import cvxopt
-import numpy as np
 
 n = 9
 # 9x9 sudoku grid
@@ -52,15 +51,15 @@ def block(x,b):
 
 
 # create the suboku constraints
-perms = lambda: Assign(n, n)*cvxopt.matrix(range(1,10))
+perms = cvxopt.matrix(range(1,10)).T * permutation(n)
 constraints = []
 for i in range(n):
-    constraints += [vstack(*list(row(numbers, i))) == perms()]
-    constraints += [vstack(*list(col(numbers, i))) == perms()]
-    constraints += [vstack(*list(block(numbers, i))) == perms()]
-#constraints.extend(numbers[k] == solution[k] for k in known)
+    constraints += [x == v for (x,v) in zip(row(numbers, i), perms)]
+    constraints += [x == v for (x,v) in zip(row(numbers, i), perms)]
+    constraints += [x == v for (x,v) in zip(block(numbers, i), perms)]
+constraints.extend(numbers[k] == solution[k] for k in known)
 
 # attempt to solve
-p = Problem(Minimize(sum_entries(abs(numbers-solution))), constraints)
-p.solve(method="admm2", rho=0.5, iterations=25)
+p = Problem(Minimize(sum(abs(numbers-solution))), constraints)
+p.solve(method="admm")
 print sum(numbers.value - solution)

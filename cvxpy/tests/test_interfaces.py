@@ -24,7 +24,7 @@ import scipy.sparse as sp
 import cvxopt
 import scipy
 import unittest
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 
 class TestInterfaces(BaseTest):
     """ Unit tests for matrix interfaces. """
@@ -149,8 +149,6 @@ class TestInterfaces(BaseTest):
         assert (scalar - mat == interface.const_to_matrix([1,0,-1])).all()
         # Sign
         self.sign_for_intf(interface)
-        # Size.
-        assert interface.size(np.array([1,2,3])) == (3, 1)
 
     # Test numpy matrix interface.
     def test_numpy_matrix(self):

@@ -19,16 +19,16 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 from cvxpy.expressions.variables.variable import Variable
 from cvxpy.constraints.int_constr import IntConstr
 
-class Int(Variable):
+class IntVar(Variable):
     """ An integer variable. """
 
     def canonicalize(self):
         """Variable must be an integer.
         """
-        obj, constr = super(Int, self).canonicalize()
+        obj, constr = super(IntVar, self).canonicalize()
         return (obj, constr + [IntConstr(obj)])
 
     def __repr__(self):
         """String to recreate the object.
         """
-        return "Int(%d, %d)" % self.size
+        return "IntVar(%d, %d)" % self.size

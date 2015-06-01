@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='cvxpy',
-    version='0.2.21',
+    version='0.2.15',
     author='Steven Diamond, Eric Chu, Stephen Boyd',
     author_email='stevend2@stanford.edu, echu508@stanford.edu, boyd@stanford.edu',
     packages=['cvxpy',
@@ -28,10 +28,9 @@ setup(
     zip_safe=False,
     description='A domain-specific language for modeling convex optimization problems in Python.',
     install_requires=["cvxopt >= 1.1.6",
-                      "ecos >= 1.1.1",
+                      "ecos >= 1.0.3",
                       "scs >= 1.0.6",
                       "toolz",
                       "numpy >= 1.8",
                       "scipy >= 0.13"],
-    use_2to3=True,
 )

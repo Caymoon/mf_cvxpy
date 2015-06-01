@@ -26,10 +26,7 @@ class ProblemData(object):
         The symbolic data for the problem.
     matrix_data : MatrixData
         The numerical data for the problem.
-    prev_result : dict
-        The result of the last solve.
     """
     def __init__(self):
         self.sym_data = None
         self.matrix_data = None
-        self.prev_result = None

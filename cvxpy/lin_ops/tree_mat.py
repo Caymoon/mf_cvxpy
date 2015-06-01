@@ -21,13 +21,15 @@ import cvxpy.interface as intf
 import cvxpy.lin_ops.lin_op as lo
 import copy
 import numpy as np
+import numpy.linalg
+import scipy.sparse as sp
 from numpy.fft import fft, ifft
 from scipy.signal import fftconvolve
 
 # Utility functions for treating an expression tree as a matrix
 # and multiplying by it and it's transpose.
 
-def mul(lin_op, val_dict, is_abs=False):
+def mul(lin_op, val_dict, p=None):
     """Multiply the expression tree by a vector.
 
     Parameters
@@ -36,8 +38,8 @@ def mul(lin_op, val_dict, is_abs=False):
         The root of an expression tree.
     val_dict : dict
         A map of variable id to value.
-    is_abs : bool, optional
-        Multiply by the absolute value of the matrix?
+    p : int, optional
+        The p-norm being approximated.
 
     Returns
     -------
@@ -47,11 +49,7 @@ def mul(lin_op, val_dict, is_abs=False):
     # Look up the value for a variable.
     if lin_op.type is lo.VARIABLE:
         if lin_op.data in val_dict:
-            # Use absolute value of variable.
-            if is_abs:
-                return np.abs(val_dict[lin_op.data])
-            else:
-                return val_dict[lin_op.data]
+            return val_dict[lin_op.data]
         # Defaults to zero if no value given.
         else:
             return np.mat(np.zeros(lin_op.size))
@@ -61,13 +59,13 @@ def mul(lin_op, val_dict, is_abs=False):
     else:
         eval_args = []
         for arg in lin_op.args:
-            eval_args.append(mul(arg, val_dict, is_abs))
-        if is_abs:
-            return op_abs_mul(lin_op, eval_args)
+            eval_args.append(mul(arg, val_dict, p))
+        if p is not None:
+            return op_pmul(lin_op, eval_args, p)
         else:
             return op_mul(lin_op, eval_args)
 
-def tmul(lin_op, value, is_abs=False):
+def tmul(lin_op, value, p=None):
     """Multiply the transpose of the expression tree by a vector.
 
     Parameters
@@ -76,8 +74,8 @@ def tmul(lin_op, value, is_abs=False):
         The root of an expression tree.
     value : NumPy matrix
         The vector to multiply by.
-    is_abs : bool, optional
-        Multiply by the absolute value of the matrix?
+    p : int, optional
+        The p-norm being approximated.
 
     Returns
     -------
@@ -91,23 +89,25 @@ def tmul(lin_op, value, is_abs=False):
     elif lin_op.type is lo.NO_OP:
         return {}
     else:
-        if is_abs:
-            result = op_abs_tmul(lin_op, value)
+        if p is not None:
+            result = op_ptmul(lin_op, value, p)
         else:
             result = op_tmul(lin_op, value)
         result_dicts = []
         for arg in lin_op.args:
-            result_dicts.append(tmul(arg, result, is_abs))
+            result_dicts.append(tmul(arg, result, p))
         # Sum repeated ids.
-        return sum_dicts(result_dicts)
+        return sum_dicts(result_dicts, p)
 
-def sum_dicts(dicts):
+def sum_dicts(dicts, p):
     """Sums the dictionaries entrywise.
 
     Parameters
     ----------
     dicts : list
         A list of dictionaries with numeric entries.
+    p : int
+        The p-norm being approximated.
 
     Returns
     -------
@@ -118,10 +118,16 @@ def sum_dicts(dicts):
     sum_dict = {}
     for val_dict in dicts:
         for id_, value in val_dict.items():
-            if id_ in sum_dict:
-                sum_dict[id_] = sum_dict[id_] + value
+            if p is None:
+                sum_dict[id_] = value + sum_dict.get(id_, 0)
             else:
-                sum_dict[id_] = value
+                value = np.power(np.abs(value), p)
+                sum_dict[id_] = value + sum_dict.get(id_, 0)
+    # Entrywise ^(1/p)
+    if p is not None:
+        for id_, value in sum_dict.items():
+            sum_dict[id_] = np.power(value, 1.0/p)
+
     return sum_dict
 
 def op_mul(lin_op, args):
@@ -142,6 +148,8 @@ def op_mul(lin_op, args):
     # Constants convert directly to their value.
     if lin_op.type in [lo.SCALAR_CONST, lo.DENSE_CONST, lo.SPARSE_CONST]:
         result = lin_op.data
+    elif lin_op.type is lo.PARAM:
+        result = lin_op.data.value
     # No-op is not evaluated.
     elif lin_op.type is lo.NO_OP:
         return None
@@ -153,6 +161,12 @@ def op_mul(lin_op, args):
     elif lin_op.type is lo.MUL:
         coeff = mul(lin_op.data, {})
         result = coeff*args[0]
+    elif lin_op.type is lo.RMUL:
+        coeff = mul(lin_op.data, {})
+        result = args[0]*coeff
+    elif lin_op.type is lo.MUL_ELEM:
+        coeff = mul(lin_op.data, {})
+        result = np.multiply(args[0], coeff)
     elif lin_op.type is lo.DIV:
         divisor = mul(lin_op.data, {})
         result = args[0]/divisor
@@ -170,12 +184,38 @@ def op_mul(lin_op, args):
     elif lin_op.type is lo.DIAG_VEC:
         val = intf.from_2D_to_1D(args[0])
         result = np.diag(val)
+    elif lin_op.type is lo.RESHAPE:
+        result = np.reshape(args[0], lin_op.size, order='F')
     else:
         raise Exception("Unknown linear operator.")
     return result
 
-def op_abs_mul(lin_op, args):
-    """Applies the absolute value of the linear operator to the arguments.
+def elem_power(mat, p):
+    """Elementwise power.
+    """
+    if np.isscalar(mat):
+        mat = np.abs(mat)**p
+    elif sp.issparse(mat):
+        mat = mat.copy()
+        np.abs(mat.data, mat.data)
+        np.power(mat.data, p, mat.data)
+    else:
+        mat = mat.copy()
+        np.abs(mat, mat)
+        np.power(mat, p, mat)
+    return mat
+
+def mat_pmul(lh_mat, rh_mat, p):
+    """Matrix multiplication with p-norms.
+    """
+    lh_mat = elem_power(lh_mat, p)
+    rh_mat = elem_power(rh_mat, p)
+    # TODO is * always right?
+    result = lh_mat*rh_mat
+    return elem_power(result, 1.0/p)
+
+def op_pmul(lin_op, args, p):
+    """Applies the p-norm approximation of the linear operator to the arguments.
 
     Parameters
     ----------
@@ -183,26 +223,46 @@ def op_abs_mul(lin_op, args):
         A linear operator.
     args : list
         The arguments to the operator.
+    p : int
+        The p-norm being approximated.
 
     Returns
     -------
     NumPy matrix or SciPy sparse matrix.
         The result of applying the linear operator.
     """
-    # Constants convert directly to their absolute value.
-    if lin_op.type in [lo.SCALAR_CONST, lo.DENSE_CONST, lo.SPARSE_CONST]:
-        result = np.abs(lin_op.data)
+    # Take the elementwise p-norm.
+    if lin_op.type is lo.SUM:
+        result = 0
+        for arg in args:
+            result += np.power(arg, p)
+        result = np.power(result, 1.0/p)
+    elif lin_op.type is lo.MUL_ELEM:
+        coeff = mul(lin_op.data, {})
+        coeff = elem_power(coeff, 1)
+        result = np.multiply(coeff, args[0])
+    # Take the p-norm.
+    elif lin_op.type is lo.SUM_ENTRIES:
+        result = numpy.linalg.norm(args[0], p)
     elif lin_op.type is lo.NEG:
         result = args[0]
-    # Absolute value of coefficient.
+    # (|A|^p x^p)^(1/p)
     elif lin_op.type is lo.MUL:
-        coeff = mul(lin_op.data, {}, True)
-        result = coeff*args[0]
+        coeff = mul(lin_op.data, {})
+        result = mat_pmul(coeff, args[0], p)
+    # (x^p|A|^p)^(1/p)
+    elif lin_op.type is lo.RMUL:
+        coeff = mul(lin_op.data, {})
+        result = mat_pmul(args[0], coeff, p)
+    elif lin_op.type is lo.MUL_ELEM:
+        coeff = mul(lin_op.data, {})
+        result = mat_pmul(args[0], coeff, p)
+    # x/|a|
     elif lin_op.type is lo.DIV:
-        divisor = mul(lin_op.data, {}, True)
+        divisor = np.abs(mul(lin_op.data, {}))
         result = args[0]/divisor
     elif lin_op.type is lo.CONV:
-        result = conv_mul(lin_op, args[0], is_abs=True)
+        result = conv_mul(lin_op, args[0], False, p)
     else:
         result = op_mul(lin_op, args)
     return result
@@ -226,6 +286,9 @@ def op_tmul(lin_op, value):
         result = value
     elif lin_op.type is lo.NEG:
         result = -value
+    elif lin_op.type is lo.MUL_ELEM:
+        coeff = mul(lin_op.data, {})
+        result = np.multiply(coeff, value)
     elif lin_op.type is lo.MUL:
         coeff = mul(lin_op.data, {})
         # Scalar coefficient, no need to transpose.
@@ -233,6 +296,13 @@ def op_tmul(lin_op, value):
             result = coeff*value
         else:
             result = coeff.T*value
+    elif lin_op.type is lo.RMUL:
+        coeff = mul(lin_op.data, {})
+        # Scalar coefficient, no need to transpose.
+        if np.isscalar(coeff):
+            result = value*coeff
+        else:
+            result = value*coeff.T
     elif lin_op.type is lo.DIV:
         divisor = mul(lin_op.data, {})
         result = value/divisor
@@ -245,20 +315,19 @@ def op_tmul(lin_op, value):
     elif lin_op.type is lo.TRANSPOSE:
         result = value.T
     elif lin_op.type is lo.PROMOTE:
-        result = np.ones(lin_op.size[0]).dot(value)
+        result = np.sum(value)
     elif lin_op.type is lo.DIAG_VEC:
-        # The return type in numpy versions < 1.10 was ndarray.
         result = np.diag(value)
-        if isinstance(result, np.matrix):
-            result = result.A[0]
     elif lin_op.type is lo.CONV:
         result = conv_mul(lin_op, value, transpose=True)
+    elif lin_op.type is lo.RESHAPE:
+        result = np.reshape(value, lin_op.args[0].size, order='F')
     else:
         raise Exception("Unknown linear operator.")
     return result
 
-def op_abs_tmul(lin_op, value):
-    """Applies the linear operator |A.T| to the arguments.
+def op_ptmul(lin_op, value, p):
+    """Applies the linear operator ~||A.T||_p to the arguments.
 
     Parameters
     ----------
@@ -266,6 +335,8 @@ def op_abs_tmul(lin_op, value):
         A linear operator.
     value : NumPy matrix
         A numeric value to apply the operator's transpose to.
+    p : int
+        The p-norm being approximated.
 
     Returns
     -------
@@ -274,24 +345,38 @@ def op_abs_tmul(lin_op, value):
     """
     if lin_op.type is lo.NEG:
         result = value
-    # Absolute value of coefficient.
+    elif lin_op.type is lo.MUL_ELEM:
+        coeff = mul(lin_op.data, {})
+        coeff = elem_power(coeff, 1)
+        result = np.multiply(coeff, value)
+    # Take the p-norm.
+    elif lin_op.type is lo.PROMOTE:
+        result = numpy.linalg.norm(value, p)
+    # (|A^T|^p x^p)^(1/p)
     elif lin_op.type is lo.MUL:
-        coeff = mul(lin_op.data, {}, True)
-        # Scalar coefficient, no need to transpose.
-        if np.isscalar(coeff):
-            result = coeff*value
-        else:
-            result = coeff.T*value
+        coeff = mul(lin_op.data, {})
+        # If scalar coefficient, no need to transpose.
+        if not np.isscalar(coeff):
+            coeff = coeff.T
+        result = mat_pmul(coeff, value, p)
+    # (x^p|A^T|^p)^(1/p)
+    elif lin_op.type is lo.RMUL:
+        coeff = mul(lin_op.data, {})
+        # If scalar coefficient, no need to transpose.
+        if not np.isscalar(coeff):
+            coeff = coeff.T
+        result = mat_pmul(value, coeff, p)
+    # x/|a|
     elif lin_op.type is lo.DIV:
-        divisor = mul(lin_op.data, {}, True)
+        divisor = np.abs(mul(lin_op.data, {}))
         result = value/divisor
     elif lin_op.type is lo.CONV:
-        result = conv_mul(lin_op, value, True, True)
+        result = conv_mul(lin_op, value, True, p)
     else:
         result = op_tmul(lin_op, value)
     return result
 
-def conv_mul(lin_op, rh_val, transpose=False, is_abs=False):
+def conv_mul(lin_op, rh_val, transpose=False, p=None):
     """Multiply by a convolution operator.
 
     arameters
@@ -302,27 +387,38 @@ def conv_mul(lin_op, rh_val, transpose=False, is_abs=False):
         The vector being convolved.
     transpose : bool
         Is the transpose of convolution being applied?
-    is_abs : bool
-        Is the absolute value of convolution being applied?
+    p : int, optional
+        The p-norm being used.
 
     Returns
     -------
     NumPy NDArray
         The convolution.
     """
-    constant = mul(lin_op.data, {}, is_abs)
+    constant = mul(lin_op.data, {})
     # Convert to 2D
     constant, rh_val = map(intf.from_1D_to_2D, [constant, rh_val])
+    # c => |c|^p, x => x^p.
+    if p is not None:
+        constant = np.power(np.abs(constant), p)
+        rh_val = np.power(np.abs(rh_val), p)
+
     if transpose:
         constant = np.flipud(constant)
         # rh_val always larger than constant.
-        return fftconvolve(rh_val, constant, mode='valid')
+        result = fftconvolve(rh_val, constant, mode='valid')
     else:
         # First argument must be larger.
         if constant.size >= rh_val.size:
-            return fftconvolve(constant, rh_val, mode='full')
+            result = fftconvolve(constant, rh_val, mode='full')
         else:
-            return fftconvolve(rh_val, constant, mode='full')
+            result = fftconvolve(rh_val, constant, mode='full')
+
+    # result => result^(1/p)
+    if p is not None:
+        result = np.power(result, 1.0/p)
+
+    return result
 
 def get_constant(lin_op):
     """Returns the constant term in the expression.

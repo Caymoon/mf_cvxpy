@@ -17,15 +17,12 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import sys
 from cvxpy.atoms.affine.affine_atom import AffAtom
 from cvxpy.expressions.expression import Expression
 from cvxpy.expressions.constants import Constant
 import cvxpy.interface as intf
 import cvxpy.lin_ops.lin_utils as lu
 import operator as op
-if sys.version_info >= (3, 0):
-    from functools import reduce
 
 class AddExpression(AffAtom):
     """The sum of any number of expressions.
@@ -38,6 +35,7 @@ class AddExpression(AffAtom):
         self.args = []
         for group in arg_groups:
             self.args += self.expand_args(group)
+        self.subexpressions = self.args
 
     def init_dcp_attr(self):
         self._dcp_attr = reduce(op.add, [arg._dcp_attr for arg in self.args])
@@ -52,7 +50,7 @@ class AddExpression(AffAtom):
 
     def name(self):
         result = str(self.args[0])
-        for i in range(1, len(self.args)):
+        for i in xrange(1, len(self.args)):
             result += " + " + str(self.args[i])
         return result
 

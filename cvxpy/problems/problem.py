@@ -55,6 +55,7 @@ class Problem(u.Canonical):
         self.constraints = constraints
         self._value = None
         self._status = None
+        self._solve_time = None
         # Cached processed data for each solver.
         self._cached_data = {}
         self._reset_cache()
@@ -84,6 +85,16 @@ class Problem(u.Canonical):
         str
         """
         return self._status
+
+    @property
+    def solve_time(self):
+        """The solve time from the last time the problem was solved.
+
+        Returns
+        -------
+        str
+        """
+        return self._solve_time
 
     def is_dcp(self):
         """Does the problem satisfy DCP rules?
@@ -185,10 +196,9 @@ class Problem(u.Canonical):
         # Raise an error if the solver cannot handle the problem.
         SOLVERS[solver].validate_solver(constraints)
         return SOLVERS[solver].get_problem_data(objective, constraints,
-                                                self._cached_data)
+                                                self._cached_data)[0]
 
-    def _solve(self, solver=None, ignore_dcp=False,
-               warm_start=False, verbose=False, **kwargs):
+    def _solve(self, solver=None, ignore_dcp=False, verbose=False, **kwargs):
         """Solves a DCP compliant optimization problem.
 
         Saves the values of primal and dual variables in the variable
@@ -201,8 +211,6 @@ class Problem(u.Canonical):
         ignore_dcp : bool, optional
             Overrides the default of raising an exception if the problem is not
             DCP.
-        warm_start : bool, optional
-            Should the previous solver result be used to warm start?
         verbose : bool, optional
             Overrides the default of hiding solver output.
         kwargs : dict, optional
@@ -240,7 +248,7 @@ class Problem(u.Canonical):
         if sym_data.presolve_status is None:
             results_dict = solver.solve(objective, constraints,
                                         self._cached_data,
-                                        warm_start, verbose, kwargs)
+                                        verbose, kwargs)
         # Presolve determined problem was unbounded or infeasible.
         else:
             results_dict = {s.STATUS: sym_data.presolve_status}
@@ -266,15 +274,12 @@ class Problem(u.Canonical):
         if results_dict[s.STATUS] in s.SOLUTION_PRESENT:
             self._save_values(results_dict[s.PRIMAL], self.variables(),
                               sym_data.var_offsets)
-            # Not all solvers provide dual variables.
-            if s.EQ_DUAL in results_dict:
-                self._save_dual_values(results_dict[s.EQ_DUAL],
-                                       sym_data.constr_map[s.EQ],
-                                       EqConstraint)
-            if s.INEQ_DUAL in results_dict:
-                self._save_dual_values(results_dict[s.INEQ_DUAL],
-                                       sym_data.constr_map[s.LEQ],
-                                       LeqConstraint)
+            self._save_dual_values(results_dict[s.EQ_DUAL],
+                                   sym_data.constr_map[s.EQ],
+                                   EqConstraint)
+            self._save_dual_values(results_dict[s.INEQ_DUAL],
+                                   sym_data.constr_map[s.LEQ],
+                                   LeqConstraint)
             # Correct optimal value if the objective was Maximize.
             value = results_dict[s.VALUE]
             self._value = self.objective.primal_to_result(value)
@@ -287,6 +292,10 @@ class Problem(u.Canonical):
                 "Solver '%s' failed. Try another solver." % solver.name()
             )
         self._status = results_dict[s.STATUS]
+        self._solve_time = results_dict[s.SOLVE_TIME]
+        # TODO Hack
+        if 'CG_ITERS' in results_dict:
+            self.cg_iters = results_dict['CG_ITERS']
 
     def unpack_results(self, solver_name, results_dict):
         """Parses the output from a solver and updates the problem state.
@@ -310,9 +319,7 @@ class Problem(u.Canonical):
         objective, constraints = self.canonicalize()
         sym_data = solver.get_sym_data(objective, constraints,
                                        self._cached_data)
-        data = {s.DIMS: sym_data.dims, s.OFFSET: 0}
-        results_dict = solver.format_results(results_dict, data,
-                                             self._cached_data)
+        results_dict = solver.format_results(results_dict, sym_data.dims)
         self._update_problem_state(results_dict, sym_data, solver)
 
     def _handle_no_solution(self, status):

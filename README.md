@@ -8,7 +8,7 @@ CVXPY is a Python-embedded modeling language for convex optimization problems. I
 
 For example, the following code solves a least-squares problem where the variable is constrained by lower and upper bounds:
 
-```python
+```
 from cvxpy import *
 import numpy
 
@@ -28,10 +28,10 @@ prob = Problem(objective, constraints)
 # The optimal objective is returned by prob.solve().
 result = prob.solve()
 # The optimal value for x is stored in x.value.
-print(x.value)
+print x.value
 # The optimal Lagrange multiplier for a constraint
 # is stored in constraint.dual_value.
-print(constraints[0].dual_value)
+print constraints[0].dual_value
 ```
 
 CVXPY was designed and implemented by Steven Diamond, with input from Stephen Boyd and Eric Chu.

@@ -19,7 +19,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 from cvxpy import *
 import cvxpy.atoms.elementwise.log as cvxlog
-from cvxpy.tests.base_test import BaseTest
+from base_test import BaseTest
 import cvxopt.solvers
 import cvxopt
 import unittest
@@ -120,10 +120,10 @@ class TestNonlinearAtoms(BaseTest):
         #Distribution to be estimated
         v_prob=cp.Variable(kK,1)
         objkl=0.0
-        for k in range(kK):
+        for k in xrange(kK):
             objkl += cp.kl_div(v_prob[k,0],p_refProb[k,0])
 
-        constrs=[__builtins__['sum']([v_prob[k,0] for k in range(kK)])==1]
+        constrs=[__builtins__['sum']([v_prob[k,0] for k in xrange(kK)])==1]
         klprob=cp.Problem(cp.Minimize(objkl),constrs)
         p_refProb.value=npSPriors
         result = klprob.solve(solver=CVXOPT, verbose=True)
@@ -135,7 +135,7 @@ class TestNonlinearAtoms(BaseTest):
         """Test a problem with entr.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Maximize(sum_entries(entr(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -148,7 +148,7 @@ class TestNonlinearAtoms(BaseTest):
         """Test a problem with exp.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Minimize(sum_entries(exp(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -161,7 +161,7 @@ class TestNonlinearAtoms(BaseTest):
         """Test a problem with log.
         """
         for n in [5, 10, 25]:
-            print(n)
+            print n
             x = Variable(n)
             obj = Maximize(sum_entries(log(x)))
             p = Problem(obj, [sum_entries(x) == 1])
@@ -200,7 +200,7 @@ class TestNonlinearAtoms(BaseTest):
         covsk=np.diag([0.3,0.5])
         Rsk.value=covsk+(musk.value*musk.value.T)
         prob.solve(verbose=True,solver=cp.CVXOPT)
-        print("second solve")
+        print "second solve"
         prob.solve(verbose=False, solver=cp.CVXOPT)
 
     # def test_kl_div(self):

@@ -23,24 +23,55 @@ from cvxpy.lin_ops.tree_mat import mul, tmul, sum_dicts
 import numpy as np
 import scipy.sparse.linalg as LA
 
+def get_mul_funcs(sym_data, constraints):
 
-def get_mul_funcs(sym_data):
+    def accAmulStoch(x, y, p=None, stoch=False, samples=25):
+        if stoch and p == 2:
+            y_total = np.zeros(y.shape)
+            for k in range(samples):
+                y_tmp = np.zeros(y.shape)
+                x_tmp = x*np.random.choice([-1, 1], size=x.shape)
+                # x_tmp = x*np.random.normal(size=x.shape)
+                accAmul(x_tmp, y_tmp, None)
+                y_total += np.square(y_tmp)
+            y += np.sqrt(y_total/samples)
+        else:
+            accAmul(x, y, p)
 
-    def accAmul(x, y, is_abs=False):
+    def accATmulStoch(x, y, p=None, stoch=False, samples=25):
+        if stoch and p == 2:
+            y_total = np.zeros(y.shape)
+            for k in range(samples):
+                y_tmp = np.zeros(y.shape)
+                x_tmp = x*np.random.choice([-1, 1], size=x.shape)
+                # x_tmp = x*np.random.normal(size=x.shape)
+                accATmul(x_tmp, y_tmp, None)
+                y_total += np.square(y_tmp)
+            y += np.sqrt(y_total/samples)
+        else:
+            accATmul(x, y, p)
+
+    def getDE(D, E):
+        pass
+
+    def getM(M):
+        pass
+
+    def accAmul(x, y, p=None):
         # y += A*x
         rows = y.shape[0]
         var_dict = vec_to_dict(x, sym_data.var_offsets,
                                sym_data.var_sizes)
-        y += constr_mul(sym_data.constraints, var_dict, rows, is_abs)
+        y += constr_mul(constraints, var_dict, rows, p)
 
-    def accATmul(x, y, is_abs=False):
+    def accATmul(x, y, p=None):
         # y += A.T*x
-        terms = constr_unpack(sym_data.constraints, x)
-        val_dict = constr_tmul(sym_data.constraints, terms, is_abs)
+        terms = constr_unpack(constraints, x)
+        val_dict = constr_tmul(constraints, terms, p)
         y += dict_to_vec(val_dict, sym_data.var_offsets,
                          sym_data.var_sizes, sym_data.x_length)
 
-    return (accAmul, accATmul)
+    return (accAmulStoch, accATmulStoch, getDE, getM)
 
 def constr_unpack(constraints, vector):
     """Unpacks a vector into a list of values for constraints.
@@ -112,7 +143,7 @@ def dict_to_vec(val_dict, var_offsets, var_sizes, vec_len):
             offset += size[0]
     return vector
 
-def constr_mul(constraints, var_dict, vec_size, is_abs):
+def constr_mul(constraints, var_dict, vec_size, p=None):
     """Multiplies a vector by the matrix implied by the constraints.
 
     Parameters
@@ -123,25 +154,24 @@ def constr_mul(constraints, var_dict, vec_size, is_abs):
         A dictionary mapping variable id to value.
     vec_size : int
         The length of the product vector.
-    is_abs : bool
-        Multiply by the absolute value of the matrix?
+    p : int
+        The p-norm being approximated.
     """
     product = np.zeros(vec_size)
     offset = 0
     for constr in constraints:
-        result = mul(constr.expr, var_dict, is_abs)
+        result = mul(constr.expr, var_dict, p)
         rows, cols = constr.size
-        for col in range(cols):
-            # Handle scalars separately.
-            if np.isscalar(result):
-                product[offset:offset+rows] = result
-            else:
-                product[offset:offset+rows] = np.squeeze(result[:, col])
-            offset += rows
-
+        # Handle scalars separately.
+        if np.isscalar(result):
+            product[offset:offset+rows*cols] = result
+        else:
+            flattened = np.reshape(result, rows*cols, order='F')
+            product[offset:offset+rows*cols] = flattened
+        offset += rows*cols
     return product
 
-def constr_tmul(constraints, values, is_abs):
+def constr_tmul(constraints, values, p=None):
     """Multiplies a vector by the transpose of the constraints matrix.
 
     Parameters
@@ -150,8 +180,8 @@ def constr_tmul(constraints, values, is_abs):
         A list of linear constraints.
     values : list
         A list of NumPy matrices.
-    is_abs : bool
-        Multiply by the absolute value of the matrix?
+    p : int
+        The p-norm being approximated.
 
     Returns
     -------
@@ -160,5 +190,5 @@ def constr_tmul(constraints, values, is_abs):
     """
     products = []
     for constr, val in zip(constraints, values):
-        products.append(tmul(constr.expr, val, is_abs))
-    return sum_dicts(products)
+        products.append(tmul(constr.expr, val, p))
+    return sum_dicts(products, p)

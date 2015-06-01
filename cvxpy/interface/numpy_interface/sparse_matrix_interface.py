@@ -17,12 +17,11 @@ You should have received a copy of the GNU General Public License
 along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from cvxpy.interface.numpy_interface.ndarray_interface import NDArrayInterface
+from ndarray_interface import NDArrayInterface
 import scipy.sparse as sp
 import numpy as np
 import numbers
 import cvxopt
-
 
 class SparseMatrixInterface(NDArrayInterface):
     """

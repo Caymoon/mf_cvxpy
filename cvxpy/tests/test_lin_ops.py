@@ -25,10 +25,7 @@ import cvxpy.interface as intf
 import numpy as np
 import scipy.sparse as sp
 import unittest
-from cvxpy.tests.base_test import BaseTest
-import sys
-PY2 = sys.version_info < (3, 0)
-
+from base_test import BaseTest
 
 class test_lin_ops(BaseTest):
     """ Unit tests for the lin_ops module. """
@@ -99,11 +96,7 @@ class test_lin_ops(BaseTest):
         # Expanding dict.
         add_expr = sum_expr([x, y, A])
         vars_ = get_expr_vars(add_expr)
-        ref = [(x.data, size), (y.data, size)]
-        if PY2:
-            self.assertItemsEqual(vars_, ref)
-        else:
-            self.assertCountEqual(vars_, ref)
+        self.assertItemsEqual(vars_, [(x.data, size), (y.data, size)])
 
     def test_neg_expr(self):
         """Test negating an expression.
@@ -127,11 +120,7 @@ class test_lin_ops(BaseTest):
         constr = create_eq(lh_expr, rh_expr)
         self.assertEqual(constr.size, size)
         vars_ = get_expr_vars(constr.expr)
-        ref = [(x.data, size), (y.data, size)]
-        if PY2:
-            self.assertItemsEqual(vars_, ref)
-        else:
-            self.assertCountEqual(vars_, ref)
+        self.assertItemsEqual(vars_, [(x.data, size), (y.data, size)])
 
     def test_leq_constr(self):
         """Test creating a less than or equal constraint.
@@ -145,11 +134,7 @@ class test_lin_ops(BaseTest):
         constr = create_leq(lh_expr, rh_expr)
         self.assertEqual(constr.size, size)
         vars_ = get_expr_vars(constr.expr)
-        ref = [(x.data, size), (y.data, size)]
-        if PY2:
-            self.assertItemsEqual(vars_, ref)
-        else:
-            self.assertCountEqual(vars_, ref)
+        self.assertItemsEqual(vars_, [(x.data, size), (y.data, size)])
 
     def test_get_coefficients(self):
         """Test the get_coefficients function.

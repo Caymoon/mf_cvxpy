@@ -18,7 +18,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 # Tests atoms by calling them with a constant value.
-from cvxpy.settings import SCS, ECOS, CVXOPT, GLPK, OPTIMAL
+from cvxpy.settings import SCS, SCS_MAT_FREE, ECOS, CVXOPT, OPTIMAL
 from cvxpy.atoms import *
 from cvxpy.atoms.affine.binary_operators import MulExpression
 from cvxpy.problems.objective import *
@@ -29,12 +29,12 @@ from cvxpy.expressions.constants import Constant, Parameter
 from cvxpy.utilities.ordered_set import OrderedSet
 import cvxpy.interface as intf
 import cvxopt
-import numpy as np
 import numpy.linalg as LA
 import math
 from nose.tools import assert_raises
 
 SOLVER_TO_TOL = {SCS: 1e-1,
+                 SCS_MAT_FREE: 1e-1,
                  ECOS: 1e-5,
                  CVXOPT: 1e-4}
 
@@ -56,7 +56,7 @@ atoms = [
         (huber, (2, 2), [ [[0.5, -1.5],[4, 0]] ],
             Constant([[0.25, 2],[7, 0]])),
         (lambda x: huber(x, 2.5), (2, 2), [ [[0.5, -1.5],[4, 0]] ],
-             Constant([[0.25, 2.25],[13.75, 0]])),
+            Constant([[0.25, 2.25],[13.75, 0]])),
         (inv_pos, (2, 2), [ [[1,2],[3,4]] ],
             Constant([[1,1.0/2],[1.0/3,1.0/4]])),
         (lambda x: (x + Constant(0))**-1, (2, 2), [ [[1,2],[3,4]] ],
@@ -65,7 +65,6 @@ atoms = [
         (kl_div, (1, 1), [math.e, math.e], Constant([0])),
         (lambda_max, (1, 1), [ [[2,0],[0,1]] ], Constant([2])),
         (lambda_max, (1, 1), [ [[5,7],[7,-3]] ], Constant([9.06225775])),
-        (lambda x: lambda_sum_largest(x, 2), (1, 1), [ [[1, 2, 3], [2,4,5], [3,5,6]] ], Constant([11.51572947])),
         (log_sum_exp, (1, 1), [ [[5, 7], [0, -3]] ], Constant([7.1277708268])),
         (matrix_frac, (1, 1), [ [1, 2, 3],
                             [[1, 0, 0],
@@ -95,7 +94,6 @@ atoms = [
             Constant([23.173260452512931])),
         (lambda x: norm(x,"nuc"), (1, 1), [ [[3,4,5],[6,7,8]] ],
             Constant([14.618376738088918])),
-        (lambda x: sum_largest(abs(x), 3), (1, 1), [ [1,2,3,-4,-5] ], Constant([5+4+3])),
         (lambda x: mixed_norm(x,1,1), (1, 1), [ [[1,2],[3,4],[5,6]] ],
             Constant([21])),
         (lambda x: mixed_norm(x,1,1), (1, 1), [ [[1,2,3],[4,5,6]] ],
@@ -104,15 +102,6 @@ atoms = [
             Constant([10])),
         (lambda x: mixed_norm(x,1,'inf'), (1, 1), [ [[1,4],[5,6]] ],
             Constant([10])),
-
-        (pnorm, (1, 1), [[1, 2, 3]], Constant([3.7416573867739413])),
-        (lambda x: pnorm(x, 1), (1, 1), [[1.1, 2, -3]], Constant([6.1])),
-        (lambda x: pnorm(x, 2), (1, 1), [[1.1, 2, -3]], Constant([3.7696153649941531])),
-        (lambda x: pnorm(x, 'inf'), (1, 1), [[1.1, 2, -3]], Constant([3])),
-        (lambda x: pnorm(x, 3), (1, 1), [[1.1, 2, -3]], Constant([3.3120161866074733])),
-        (lambda x: pnorm(x, 5.6), (1, 1), [[1.1, 2, -3]], Constant([3.0548953718931089])),
-        (lambda x: pnorm(x, 1.2), (1, 1), [[[1, 2, 3], [4, 5, 6]]], Constant([15.971021676279573])),
-
         (pos, (1, 1), [8], Constant([8])),
         (pos, (2, 1), [ [-3,2] ], Constant([0,2])),
         (neg, (2, 1), [ [-3,3] ], Constant([3,0])),
@@ -126,15 +115,6 @@ atoms = [
         # #(pow_rat(4,4,2), 16),
         # #(pow_rat(8,4,3), 16),
         # #(pow_rat(8,4,4), 8),
-
-        (lambda x: power(x, 0), (1, 1), [7.45], Constant([1])),
-        (lambda x: power(x, 1), (1, 1), [7.45], Constant([7.45])),
-        (lambda x: power(x, 2), (1, 1), [7.45], Constant([55.502500000000005])),
-        (lambda x: power(x, -1), (1, 1), [7.45], Constant([0.1342281879194631])),
-        (lambda x: power(x, -.7), (1, 1), [7.45], Constant([0.24518314363015764])),
-        (lambda x: power(x, -1.34), (1, 1), [7.45], Constant([0.06781263100321579])),
-        (lambda x: power(x, 1.34), (1, 1), [7.45], Constant([14.746515290825071])),
-
         (quad_over_lin, (1, 1), [ [[-1,2,-2], [-1,2,-2]], 2], Constant([2*4.5])),
         (quad_over_lin, (1, 1), [v, 2], Constant([4.5])),
         # #(square_over_lin(2,4), 1),
@@ -143,8 +123,6 @@ atoms = [
         (lambda x: scalene(x, 2, 3), (2, 2), [ [[-5,2],[-3,1]] ], Constant([[15,4],[9,2]])),
         (square, (2, 2), [ [[-5,2],[-3,1]] ], Constant([[25,4],[9,1]])),
         (lambda x: (x + Constant(0))**2, (2, 2), [ [[-5,2],[-3,1]] ], Constant([[25,4],[9,1]])),
-        (lambda x: sum_largest(x, 3), (1, 1), [ [1,2,3,4,5] ], Constant([5+4+3])),
-        (lambda x: sum_largest(x, 3), (1, 1), [ [[3,4,5],[6,7,8],[9,10,11]] ], Constant([9+10+11])),
         (sum_squares, (1, 1), [ [[-1, 2],[3, -4]] ], Constant([30])),
         (trace, (1, 1), [ [[3,4,5],[6,7,8],[9,10,11]] ], Constant([3 + 7 + 11])),
         (trace, (1, 1), [ [[-5,2],[-3,1]]], Constant([-5 + 1])),
@@ -154,7 +132,6 @@ atoms = [
         (tv, (1, 1), [ [[-5,2],[-3,1]], [[6,5],[-4,3]], [[8,0],[15,9]] ],
             Constant([LA.norm([7, -1, -8, 2, -10, 7])])),
         (tv, (1, 1), [ [[3,4,5],[6,7,8],[9,10,11]] ], Constant([4*math.sqrt(10)])),
-        (upper_tri, (3, 1), [ [[3,4,5],[6,7,8],[9,10,11]] ], Constant([6, 9, 10])),
     ], Minimize),
     ([
         (entr, (2, 2), [ [[1, math.e],[math.e**2, 1.0/math.e]] ],
@@ -165,37 +142,24 @@ atoms = [
                   [8, 16, 2, 4],
                   [5, 2, 5, 2],
                   [2, 4, 2, 4]] ], Constant([7.7424])),
-        (geo_mean, (1, 1), [[4, 1]], Constant([2])),
-        (geo_mean, (1, 1), [[0.01, 7]], Constant([0.2645751311064591])),
-        (geo_mean, (1, 1), [[63, 7]], Constant([21])),
-        (geo_mean, (1, 1), [[1, 10]], Constant([math.sqrt(10)])),
-        (lambda x: geo_mean(x, [1, 1]), (1, 1), [[1, 10]], Constant([math.sqrt(10)])),
-        (lambda x: geo_mean(x, [.4, .8, 4.9]), (1, 1), [[.5, 1.8, 17]], Constant([10.04921378316062])),
-
-        (harmonic_mean, (1, 1), [[1, 2, 3]], Constant([1.6363636363636365])),
-        (harmonic_mean, (1, 1), [[2.5, 2.5, 2.5, 2.5]], Constant([2.5])),
-        (harmonic_mean, (1, 1), [[0, 1, 2]], Constant([0])),
-
-        (lambda x: pnorm(x, .5), (1, 1), [[1.1, 2, .1]], Constant([7.724231543909264])),
-        (lambda x: pnorm(x, -.4), (1, 1), [[1.1, 2, .1]], Constant([0.02713620334])),
-        (lambda x: pnorm(x, -1), (1, 1), [[1.1, 2, .1]], Constant([0.0876494023904])),
-        (lambda x: pnorm(x, -2.3), (1, 1), [[1.1, 2, .1]], Constant([0.099781528576])),
-
+        (geo_mean, (1, 1), [4,1], Constant([2])),
+        # (geo_mean, (1, 1), [0,7], Constant([0])),
+        (geo_mean, (3, 2), [ [[2,63,3], [1,1,2]], [[8,7,3],[10,4,2]] ], Constant([[4,21,3],[math.sqrt(10),2,2]])),
         (lambda_min, (1, 1), [ [[2,0],[0,1]] ], Constant([1])),
         (lambda_min, (1, 1), [ [[5,7],[7,-3]] ], Constant([-7.06225775])),
-        (lambda x: lambda_sum_smallest(x, 2), (1, 1), [ [[1, 2, 3], [2,4,5], [3,5,6]] ], Constant([-0.34481428])),
         (log, (2, 2), [ [[1, math.e],[math.e**2, 1.0/math.e]] ], Constant([[0, 1],[2, -1]])),
         (log1p, (2, 2), [ [[0, math.e-1],[math.e**2-1, 1.0/math.e-1]] ], Constant([[0, 1],[2, -1]])),
         (min_elemwise, (2, 1), [ [-5,2],[-3,1],0,[1,2] ], Constant([-5,0])),
         (min_elemwise, (2, 2), [ [[-5,2],[-3,-1]],0,[[5,4],[-1,2]] ], Constant([[-5,0],[-3,-1]])),
         (min_entries, (1, 1), [ [[-5,2],[-3,1]] ], Constant([-5])),
         (min_entries, (1, 1), [ [-5,-10] ], Constant([-10])),
-        (lambda x: x**0.25, (1, 1), [7.45], Constant([7.45**0.25])),
-        (lambda x: x**0.32, (2, 1), [ [7.45, 3.9] ], Constant(np.power(np.array([7.45, 3.9]), 0.32))),
-        (lambda x: x**0.9, (2, 2),  [ [[7.45, 2.2], [4, 7]] ], Constant(np.power(np.array([[7.45, 2.2], [4, 7]]).T, 0.9))),
+        # #(pow_rat(4,1,2), 2),
+        # #(pow_rat(8,1,3), 2),
+        # #(pow_rat(16,1,4),2),
+        # #(pow_rat(8,2,3), 4),
+        # #(pow_rat(4,2,4), 2),
+        # #(pow_rat(16,3,4),8),
         (sqrt, (2, 2), [ [[2,4],[16,1]] ], Constant([[1.414213562373095,2],[4,1]])),
-        (lambda x: sum_smallest(x, 3), (1, 1), [ [-1,2,3,4,5] ], Constant([-1+2+3])),
-        (lambda x: sum_smallest(x, 4), (1, 1), [ [[-3,-4,5],[6,7,8],[9,10,11]] ], Constant([-3-4+5+6])),
         (lambda x: (x + Constant(0))**0.5, (2, 2), [ [[2,4],[16,1]] ], Constant([[1.414213562373095,2],[4,1]])),
     ], Maximize),
 ]
@@ -208,21 +172,21 @@ def check_solver(prob, solver_name):
     try:
         solver.validate_solver(constraints)
         return True
-    except Exception as e:
+    except Exception, e:
         return False
 
 # Tests numeric version of atoms.
 def run_atom(atom, problem, obj_val, solver):
     assert problem.is_dcp()
-    print(problem.objective)
-    print(problem.constraints)
+    print problem.objective
+    print problem.constraints
     if check_solver(problem, solver):
-        print("solver", solver)
+        print "solver", solver
         tolerance = SOLVER_TO_TOL[solver]
-        result = problem.solve(solver=solver, verbose=True)
+        result = problem.solve(solver=solver)
         if problem.status is OPTIMAL:
-            print(result)
-            print(obj_val)
+            print result
+            print obj_val
             assert( -tolerance <= result - obj_val <= tolerance )
         else:
             assert (atom, solver) in KNOWN_SOLVER_ERRORS
@@ -230,14 +194,13 @@ def run_atom(atom, problem, obj_val, solver):
 def test_atom():
     for atom_list, objective_type in atoms:
         for atom, size, args, obj_val in atom_list:
-            for row in range(size[0]):
-                for col in range(size[1]):
-                    for solver in [ECOS, SCS, CVXOPT]:
+            for row in xrange(size[0]):
+                for col in xrange(size[1]):
+                    for solver in [ECOS, SCS, CVXOPT, SCS_MAT_FREE]:
                         # Atoms with Constant arguments.
-                        const_args = [Constant(arg) for arg in args]
                         yield (run_atom,
                                atom,
-                               Problem(objective_type(atom(*const_args)[row,col])),
+                               Problem(objective_type(atom(*args)[row,col])),
                                obj_val[row,col].value,
                                solver)
                         # Atoms with Variable arguments.
