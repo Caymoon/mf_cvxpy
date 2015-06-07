@@ -76,7 +76,7 @@ class ExpCone(NonlinearConstraint):
         """
         if solver.name() == s.CVXOPT:
             eq_constr += self.__CVXOPT_format[0]
-        elif solver.name() in [s.SCS, s.SCS_MAT_FREE]:
+        elif solver.name() in [s.SCS, s.SCS_MAT_FREE, s.POGS, s.MAT_FREE_POGS]:
             leq_constr += self.__SCS_format[1]
         else:
             raise SolverError("Solver does not support exponential cone.")

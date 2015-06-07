@@ -19,6 +19,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 import cvxpy.interface as intf
 import cvxpy.lin_ops.lin_op as lo
+import cvxpy.lin_ops.lin_utils as lu
 import copy
 import numpy as np
 import numpy.linalg
@@ -186,6 +187,8 @@ def op_mul(lin_op, args):
         result = np.diag(val)
     elif lin_op.type is lo.RESHAPE:
         result = np.reshape(args[0], lin_op.size, order='F')
+    elif lin_op.type is lo.VSTACK:
+        result = np.vstack(args)
     else:
         raise Exception("Unknown linear operator.")
     return result
@@ -504,9 +507,36 @@ def prune_expr(lin_op):
     is_constant = True
     for arg in lin_op.args:
         arg_constant = prune_expr(arg)
-        if not arg_constant:
+        if arg_constant:
+            arg = lo.LinOp(lo.NO_OP, arg.size, [], None)
+        else:
             is_constant = False
-            pruned_args.append(arg)
+        pruned_args.append(arg)
     # Overwrite old args with only non-constant args.
     lin_op.args[:] = pruned_args[:]
     return is_constant
+
+def combine_lin_ops(operators):
+    """Combines the LinOps by stacking their output into a vector.
+
+    Parameters
+    ----------
+    operators : list
+        A list of LinOps.
+
+    Returns
+    -------
+    LinOp
+        The combined LinOp.
+    """
+    # First vectorize all the LinOp outputs.
+    vect_lin_ops = []
+    total_length = 0
+    for lin_op in operators:
+        if lin_op.size[1] != 1:
+            new_size = (lin_op.size[0]*lin_op.size[1], 1)
+            lin_op = lu.reshape(lin_op, new_size)
+        vect_lin_ops.append(lin_op)
+        total_length += lin_op.size[0]
+    # Stack all the outputs into a single vector.
+    return lu.vstack(vect_lin_ops, (total_length, 1))

@@ -22,6 +22,7 @@ from cvxpy.error import SolverError
 import cvxpy.settings as s
 from cvxpy.problems.problem_data.matrix_data import MatrixData
 from cvxpy.problems.problem_data.sym_data import SymData
+import copy
 
 class Solver(object):
     """Generic interface for a solver.
@@ -169,6 +170,33 @@ class Solver(object):
             prob_data.sym_data = SymData(objective, constraints, self)
         return prob_data.sym_data
 
+    def convert_dims_to_indices(self, dims):
+        """Converts the dims format to a list of (enum, list of indices) tuples.
+        """
+        # Convert EXP_DIM to a list of cones.
+        dims = copy.deepcopy(dims)
+        dims[s.EXP_DIM] = dims[s.EXP_DIM]*[3]
+        cones = []
+        offset = 0
+        for cone_enum in [s.EQ_DIM, s.LEQ_DIM]:
+            offset = self.add_cone(cones, cone_enum, dims[cone_enum], offset)
+        for cone_enum in [s.SOC_DIM, s.SDP_DIM, s.EXP_DIM]:
+            for cone_block in dims[cone_enum]:
+                offset = self.add_cone(cones, cone_enum, cone_block, offset)
+        return cones
+
+    def add_cone(self, cones, cone_enum, length, offset):
+        """Appends a tuple (cone_enum, list of indices) to cones.
+
+        Returns
+        -------
+        int
+            The new offset.
+        """
+        if length > 0:
+            cone_tup = (cone_enum, range(offset, length + offset))
+            cones.append(cone_tup)
+        return offset + length
 
     def get_matrix_data(self, objective, constraints, cached_data):
         """Returns the numeric data for the problem.
