@@ -56,7 +56,7 @@ class POGS(SCS):
         cones = self.convert_dims_to_indices(dims)
         # Set the options to be VERBOSE plus any user-specific options.
         solver_opts["verbose"] = verbose
-        results_dict = canonInterface.pogs_solve(data, cones)
+        results_dict = canonInterface.pogs_solve(data, cones, **solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
 
     def format_results(self, results_dict, dims, obj_offset=0):
@@ -77,15 +77,14 @@ class POGS(SCS):
             The solver output in standard form.
         """
         new_results = {}
-        status = s.SOLVER_STATUS[s.SCS][results_dict["info"]["status"]]
+        status = s.SOLVER_STATUS[s.SCS][results_dict['info']["status"]]
         new_results[s.STATUS] = status
-        new_results[s.SOLVE_TIME] = (results_dict["info"]["solveTime"] + \
-                                     results_dict["info"]["setupTime"])/1000.
+        new_results[s.SOLVE_TIME] = 1
         if new_results[s.STATUS] in s.SOLUTION_PRESENT:
-            primal_val = results_dict["info"]["pobj"]
+            primal_val = results_dict['info']["pobj"]
             new_results[s.VALUE] = primal_val + obj_offset
             new_results[s.PRIMAL] = results_dict["x"]
-            new_results[s.EQ_DUAL] = results_dict["y"][0:dims["f"]]
-            new_results[s.INEQ_DUAL] = results_dict["y"][dims["f"]:]
+            new_results[s.EQ_DUAL] = results_dict["mu"][0:dims["f"]]
+            new_results[s.INEQ_DUAL] = results_dict["mu"][dims["f"]:]
 
         return new_results

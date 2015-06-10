@@ -178,10 +178,10 @@ class Solver(object):
         dims[s.EXP_DIM] = dims[s.EXP_DIM]*[3]
         cones = []
         offset = 0
-        for cone_enum in [s.EQ_DIM, s.LEQ_DIM]:
-            offset = self.add_cone(cones, cone_enum, dims[cone_enum], offset)
-        for cone_enum in [s.SOC_DIM, s.SDP_DIM, s.EXP_DIM]:
-            for cone_block in dims[cone_enum]:
+        for cone_key, cone_enum in [(s.EQ_DIM, s.EQ), (s.LEQ_DIM, s.LEQ)]:
+            offset = self.add_cone(cones, cone_enum, dims[cone_key], offset)
+        for cone_key, cone_enum in [(s.SOC_DIM, s.SOC), (s.SDP_DIM, s.SDP), (s.EXP_DIM, s.EXP)]:
+            for cone_block in dims[cone_key]:
                 offset = self.add_cone(cones, cone_enum, cone_block, offset)
         return cones
 
