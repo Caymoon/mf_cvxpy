@@ -19,6 +19,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 from cvxpy import *
 import cvxpy.settings as s
+import cvxpy.lin_ops.lin_utils as lu
 from cvxpy.lin_ops.tree_mat import mul, tmul, prune_constants
 import cvxpy.problems.iterative as iterative
 from cvxpy.problems.solvers.utilities import SOLVERS
@@ -29,6 +30,7 @@ import scipy.sparse as sp
 import scipy.linalg as LA
 import unittest
 from base_test import BaseTest
+import faoInterface
 
 
 def pnorm_mat_mul(A, B, p):
@@ -47,6 +49,49 @@ def pnorm_mat_mul(A, B, p):
 
 class test_tree_mat(BaseTest):
     """ Unit tests for the matrix ops with expression trees. """
+    def test_fao_mul(self):
+        """Test the mul method.
+        """
+        n = 2
+        ones = np.ones(n)
+        # Multiplication
+        x = Variable(n)
+        A = np.matrix("1 2; 3 4").A
+        expr = (A*x).canonical_form[0]
+
+        input_arr = np.ones(n)
+        output_arr = np.zeros(n)
+        vars_ = lu.get_expr_vars(expr)
+        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr)
+        assert (output_arr == A.dot(ones)).all()
+
+        input_arr = np.ones(n)
+        output_arr = np.zeros(n)
+        vars_ = lu.get_expr_vars(expr)
+        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr, forward=False)
+        assert (output_arr == A.T.dot(ones)).all()
+
+        n = 2
+        m = 3
+        ones = np.ones((m,n))
+        # Multiplication
+        x = Variable(m,n)
+        A = np.matrix("1 2 3; 4 5 6").A
+        expr = (A*x).canonical_form[0]
+
+        input_arr = np.ones(m*n)
+        output_arr = np.zeros(n*n)
+        vars_ = lu.get_expr_vars(expr)
+        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr)
+        assert (output_arr == A.dot(ones).flatten(order='F')).all()
+
+        ones = np.ones((n,n))
+        input_arr = np.ones(n*n)
+        output_arr = np.zeros(m*n)
+        vars_ = lu.get_expr_vars(expr)
+        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr, forward=False)
+        print output_arr
+        assert (output_arr == A.T.dot(ones).flatten(order='F')).all()
 
     def test_mul(self):
         """Test the mul method.
