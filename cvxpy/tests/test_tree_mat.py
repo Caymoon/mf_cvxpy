@@ -20,6 +20,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 from cvxpy import *
 import cvxpy.settings as s
 import cvxpy.lin_ops.lin_utils as lu
+import cvxpy.lin_ops.fao_utils as fao
 from cvxpy.lin_ops.tree_mat import mul, tmul, prune_constants
 import cvxpy.problems.iterative as iterative
 from cvxpy.problems.solvers.utilities import SOLVERS
@@ -54,7 +55,7 @@ class test_tree_mat(BaseTest):
         """
         n = 2
         ones = np.ones(n)
-        # Multiplication
+        # Matrix-vector multiplication.
         x = Variable(n)
         A = np.matrix("1 2; 3 4").A
         expr = (A*x).canonical_form[0]
@@ -62,36 +63,53 @@ class test_tree_mat(BaseTest):
         input_arr = np.ones(n)
         output_arr = np.zeros(n)
         vars_ = lu.get_expr_vars(expr)
-        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr)
+        dag = fao.tree_to_dag(expr, vars_)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
+        print output_arr
         assert (output_arr == A.dot(ones)).all()
 
         input_arr = np.ones(n)
         output_arr = np.zeros(n)
         vars_ = lu.get_expr_vars(expr)
-        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr, forward=False)
+
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
         assert (output_arr == A.T.dot(ones)).all()
 
         n = 2
         m = 3
         ones = np.ones((m,n))
-        # Multiplication
+        # Matrix-matrix multiplication.
         x = Variable(m,n)
         A = np.matrix("1 2 3; 4 5 6").A
-        expr = (A*x).canonical_form[0]
 
+        expr = (A*x).canonical_form[0]
         input_arr = np.ones(m*n)
         output_arr = np.zeros(n*n)
         vars_ = lu.get_expr_vars(expr)
-        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr)
+        dag = fao.tree_to_dag(expr, vars_)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
         assert (output_arr == A.dot(ones).flatten(order='F')).all()
 
         ones = np.ones((n,n))
         input_arr = np.ones(n*n)
         output_arr = np.zeros(m*n)
         vars_ = lu.get_expr_vars(expr)
-        faoInterface.eval_FAO_DAG(expr, vars_, input_arr, output_arr, forward=False)
-        print output_arr
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
         assert (output_arr == A.T.dot(ones).flatten(order='F')).all()
+
+        # Addition
+        n = 2
+        x = Variable(n, n)
+        y = Variable(n, n)
+        expr = (y + x).canonical_form[0]
+
+        input_arr = np.array(range(2*n*n))
+        output_arr = np.zeros(n*n)
+        vars_ = lu.get_expr_vars(expr)
+        dag = fao.tree_to_dag(expr, vars_)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
+        print output_arr
+        assert (output_arr == np.array([0 + 4, 1 + 5, 2 + 6, 3 + 7])).all()
 
     def test_mul(self):
         """Test the mul method.
