@@ -70,6 +70,14 @@ COPY = "copy"
 # Data: None.
 SPLIT = "split"
 
+def lin_op_data(lin_op):
+    """Return the LinOp data converted into FAO format.
+    """
+    fao_data = lin_op.data.data
+    if isinstance(fao_data, np.matrix):
+        fao_data = fao_data.A
+    return fao_data
+
 def lin_op_to_fao(root, edges):
     """Converts a LinOp tree to an FAO tree.
 
@@ -96,13 +104,15 @@ def lin_op_to_fao(root, edges):
                 fao_type = SPARSE_MAT_VEC_MUL
             else:
                 fao_type = SPARSE_MAT_MAT_MUL
-        fao_data = root.data.data
-        if isinstance(fao_data, np.matrix):
-            fao_data = fao_data.A
+        fao_data = lin_op_data(root)
     # Convert division to scalar multiplication.
     elif root.type == lo.DIV:
         fao_type = SCALAR_MUL
         fao_data = 1.0/root.data.data
+    # Conv data is the kernel.
+    elif root.type == lo.CONV:
+        fao_type = lo.CONV
+        fao_data = lin_op_data(root).flatten()
     else:
         fao_type = root.type
         fao_data = root.data
@@ -164,13 +174,15 @@ def simplify_dag(dag):
         del edges[edge_idx]
         start_node.input_edges[:] = []
 
-    nodes = get_nodes(edges)
+    nodes = get_nodes(edges, start_node)
     return FAO_DAG(start_node, dag.end_node, nodes, edges)
 
-def get_nodes(edges):
+def get_nodes(edges, start_node):
     """Returns all the nodes accessible via the edges.
+
+    Include the start node in case no edges.
     """
-    nodes = {}
+    nodes = {id(start_node): start_node}
     for n1, n2 in edges.items():
         nodes[id(n1)] = n1
         nodes[id(n2)] = n2
@@ -237,6 +249,6 @@ def tree_to_dag(root, ordered_vars):
         no_op_node.input_sizes.append(var_size)
         no_op_node.input_edges.append(edge_id)
 
-    nodes = get_nodes(edges)
+    nodes = get_nodes(edges, start_node)
     dag = FAO_DAG(start_node, root, nodes, edges)
     return simplify_dag(dag)

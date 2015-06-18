@@ -21,15 +21,17 @@ import cvxpy.settings as s
 from cvxpy.problems.solvers.scs_intf import SCS
 import cvxpy.problems.iterative as iterative
 import cvxpy.lin_ops.tree_mat as tree_mat
+import cvxpy.lin_ops.fao_utils as fao_utils
 import mat_free_scs
+import faoInterface
 
-class SCS_MAT_FREE(SCS):
+class MAT_FREE_SCS(SCS):
     """An interface for the SCS solver.
     """
     def name(self):
         """The name of the solver.
         """
-        return s.SCS_MAT_FREE
+        return s.MAT_FREE_SCS
 
     def split_constr(self, constr_map):
         """Extracts the equality, inequality, and nonlinear constraints.
@@ -69,18 +71,17 @@ class SCS_MAT_FREE(SCS):
         c, offset = matrix_data.get_objective()
         all_ineq = sym_data.constr_map[s.EQ] + sym_data.constr_map[s.LEQ]
         A_rows = sum(constr.size[0]*constr.size[1] for constr in all_ineq)
-        b = -iterative.constr_mul(all_ineq, {}, A_rows)
+        constr_root = tree_mat.combine_lin_ops([con.expr for con in all_ineq])
+        b = -tree_mat.mul(constr_root, {})
         data = {"c": c}
-        #data["A"] = matrix_data.get_eq_constr()[0]
-        data["A"] = self.matrix_intf().zeros(A_rows, sym_data.x_length)
         data["b"] = b
         # Remove constants from expressions.
-        constraints = tree_mat.prune_constants(all_ineq)
-        Amul, ATmul, getDE, getM = iterative.get_mul_funcs(sym_data, constraints)
-        data["Amul"] = Amul
-        data["ATmul"] = ATmul
-        data["getDE"] = getDE
-        data["getM"] = getM
+        tree_mat.prune_expr(constr_root)
+        # Get ordered list of var sizes.
+        var_offsets = sorted(sym_data.var_offsets.items(),
+                             lambda x,y: x[0] <= y[0])
+        ordered_sizes = [(v, sym_data.var_sizes[v]) for v,_ in var_offsets]
+        data['fao_dag'] = fao_utils.tree_to_dag(constr_root, ordered_sizes)
         return (data, sym_data.dims), offset
 
     def solve(self, objective, constraints, cached_data, verbose, solver_opts):
@@ -107,16 +108,7 @@ class SCS_MAT_FREE(SCS):
         (data, dims), obj_offset = self.get_problem_data(objective,
                                                          constraints,
                                                          cached_data)
-        # Always use indirect method.
-        solver_opts["use_indirect"] = True
-        # Set the options to be VERBOSE plus any user-specific options.
-        solver_opts["verbose"] = verbose
-        # Default to p=2.
-        solver_opts["equil_p"] = solver_opts.get("equil_p", 2)
-        solver_opts["stoch"] = solver_opts.get("stoch", False)
-        solver_opts["samples"] = solver_opts.get("samples", 25)
-        solver_opts["precond"] = solver_opts.get("precond", True)
-        results_dict = mat_free_scs.solve(data, dims, **solver_opts)
+        results_dict = faoInterface.scs_solve(data['fao_dag'], data, dims, solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
 
     def format_results(self, results_dict, dims, obj_offset=0):

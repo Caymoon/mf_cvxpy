@@ -65,13 +65,10 @@ class test_tree_mat(BaseTest):
         vars_ = lu.get_expr_vars(expr)
         dag = fao.tree_to_dag(expr, vars_)
         faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
-        print output_arr
         assert (output_arr == A.dot(ones)).all()
 
         input_arr = np.ones(n)
         output_arr = np.zeros(n)
-        vars_ = lu.get_expr_vars(expr)
-
         faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
         assert (output_arr == A.T.dot(ones)).all()
 
@@ -93,7 +90,6 @@ class test_tree_mat(BaseTest):
         ones = np.ones((n,n))
         input_arr = np.ones(n*n)
         output_arr = np.zeros(m*n)
-        vars_ = lu.get_expr_vars(expr)
         faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
         assert (output_arr == A.T.dot(ones).flatten(order='F')).all()
 
@@ -108,8 +104,50 @@ class test_tree_mat(BaseTest):
         vars_ = lu.get_expr_vars(expr)
         dag = fao.tree_to_dag(expr, vars_)
         faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
-        print output_arr
         assert (output_arr == np.array([0 + 4, 1 + 5, 2 + 6, 3 + 7])).all()
+
+        input_arr = np.array(range(n*n))
+        output_arr = np.zeros(2*n*n)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
+        assert (output_arr == np.hstack([input_arr, input_arr])).all()
+
+        # Negation
+        x = Variable(3,2)
+        expr = (-x).canonical_form[0]
+        vars_ = lu.get_expr_vars(expr)
+        dag = fao.tree_to_dag(expr, vars_)
+        input_arr = np.arange(6)
+        output_arr = np.zeros(3*2)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
+        assert (output_arr == -input_arr).all()
+
+        input_arr = np.arange(6)
+        output_arr = np.zeros(3*2)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
+        assert (output_arr == -input_arr).all()
+
+        # Convolution
+        x = Variable(3)
+        f = np.matrix(np.array([1, 2, 3])).T
+        g = np.array([0, 1, 0.5])
+        f_conv_g = np.array([ 0., 1., 2.5,  4., 1.5])
+        expr = conv(f, x).canonical_form[0]
+        vars_ = lu.get_expr_vars(expr)
+        dag = fao.tree_to_dag(expr, vars_)
+
+        input_arr = g
+        output_arr = np.zeros(5)
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr)
+        self.assertItemsAlmostEqual(output_arr, f_conv_g)
+
+        input_arr = np.array(range(5))
+        output_arr = np.zeros(3)
+        toep = LA.toeplitz(np.array([1,0,0]),
+                           np.array([1, 2, 3, 0, 0]))
+        faoInterface.eval_FAO_DAG(dag, input_arr, output_arr, forward=False)
+        print output_arr
+        print toep
+        self.assertItemsAlmostEqual(output_arr, toep.dot(input_arr))
 
     def test_mul(self):
         """Test the mul method.

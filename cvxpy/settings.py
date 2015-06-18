@@ -76,7 +76,7 @@ SCS_STATUS = {"Solved": OPTIMAL,
               "Infeasible/Inaccurate": INFEASIBLE_INACCURATE,
               "Failure": SOLVER_ERROR,
               "Indeterminate": SOLVER_ERROR}
-SCS_MAT_FREE = "SCS_MAT_FREE"
+MAT_FREE_SCS = "MAT_FREE_SCS"
 POGS = "POGS"
 MAT_FREE_POGS = "MAT_FREE_POGS"
 
