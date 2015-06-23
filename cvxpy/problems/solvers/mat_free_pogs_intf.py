@@ -69,8 +69,8 @@ class MAT_FREE_POGS(SCS):
         c, offset = matrix_data.get_objective()
         all_ineq = sym_data.constr_map[s.EQ] + sym_data.constr_map[s.LEQ]
         A_rows = sum(constr.size[0]*constr.size[1] for constr in all_ineq)
-        constr_root = tree_mat.combine_lin_ops([c.expr for c in all_ineq])
-        b = tree_mat.mul(constr_root, {})
+        constr_root = tree_mat.combine_lin_ops([con.expr for con in all_ineq])
+        b = -tree_mat.mul(constr_root, {})
         data = {"c": c}
         data["b"] = b
         # Remove constants from expressions.
@@ -80,7 +80,7 @@ class MAT_FREE_POGS(SCS):
                              lambda x,y: x[0] <= y[0])
         ordered_sizes = [(v, sym_data.var_sizes[v]) for v,_ in var_offsets]
         data['fao_dag'] = fao_utils.tree_to_dag(constr_root, ordered_sizes)
-        return (data, cones), offset
+        return (data, sym_data.dims), offset
 
     def solve(self, objective, constraints, cached_data, verbose, solver_opts):
         """Returns the result of the call to the solver.
@@ -103,9 +103,11 @@ class MAT_FREE_POGS(SCS):
         tuple
             (status, optimal value, primal, equality dual, inequality dual)
         """
-        (data, cones), obj_offset = self.get_problem_data(objective,
+        (data, dims), obj_offset = self.get_problem_data(objective,
                                                          constraints,
                                                          cached_data)
+        cones = self.convert_dims_to_indices(dims)
+        solver_opts["verbose"] = verbose
         results_dict = faoInterface.mat_free_pogs_solve(data['fao_dag'], data,
             cones, solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
@@ -130,9 +132,11 @@ class MAT_FREE_POGS(SCS):
         new_results = {}
         status = s.SOLVER_STATUS[s.SCS][results_dict["info"]["status"]]
         new_results[s.STATUS] = status
-        new_results[s.SOLVE_TIME] = results_dict["info"]["solveTime"] + \
-                                    results_dict["info"]["setupTime"]
-        new_results['CG_ITERS'] = results_dict["info"]["cgIter"]
+        # new_results[s.SOLVE_TIME] = results_dict["info"]["solveTime"] + \
+        #                             results_dict["info"]["setupTime"]
+        # new_results['CG_ITERS'] = results_dict["info"]["cgIter"]
+        new_results[s.SOLVE_TIME] = -1
+        new_results['CG_ITERS'] = -1
         if new_results[s.STATUS] in s.SOLUTION_PRESENT:
             primal_val = results_dict["info"]["pobj"]
             new_results[s.VALUE] = primal_val + obj_offset

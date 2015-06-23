@@ -180,6 +180,7 @@ def simplify_dag(dag):
             edge = edges[edge_idx]
             node = edge[1]
             # If this is an identity transformation, eliminate it.
+            # It's a while loop in case the next node can also be eliminated.
             while True:
                 if (node.type == COPY and len(node.output_edges) == 1) or \
                    (node.type == lo.SUM and len(node.input_edges) == 1):
@@ -194,6 +195,7 @@ def simplify_dag(dag):
                     del edges[node.output_edges[0]]
                     del edges[edge_idx]
                     node = next_node
+                    edge_idx = new_edge_id
                 else:
                     break
             eval_map[id(node)] += 1
