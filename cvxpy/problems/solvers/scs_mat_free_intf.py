@@ -19,17 +19,17 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 import cvxpy.settings as s
 from cvxpy.problems.solvers.scs_intf import SCS
+import cvxpy.problems.iterative as iterative
 import cvxpy.lin_ops.tree_mat as tree_mat
-import cvxpy.lin_ops.fao_utils as fao_utils
-import faoInterface
+import mat_free_scs
 
-class MAT_FREE_POGS(SCS):
-    """An interface for the matrix-free POGS solver.
+class SCS_MAT_FREE(SCS):
+    """An interface for the SCS solver.
     """
     def name(self):
         """The name of the solver.
         """
-        return s.MAT_FREE_POGS
+        return s.OLD_SCS_MAT_FREE
 
     def split_constr(self, constr_map):
         """Extracts the equality, inequality, and nonlinear constraints.
@@ -69,18 +69,19 @@ class MAT_FREE_POGS(SCS):
         c, offset = matrix_data.get_objective()
         all_ineq = sym_data.constr_map[s.EQ] + sym_data.constr_map[s.LEQ]
         A_rows = sum(constr.size[0]*constr.size[1] for constr in all_ineq)
-        constr_root = tree_mat.combine_lin_ops([c.expr for c in all_ineq])
-        b = tree_mat.mul(constr_root, {})
+        b = -iterative.constr_mul(all_ineq, {}, A_rows)
         data = {"c": c}
+        #data["A"] = matrix_data.get_eq_constr()[0]
+        data["A"] = self.matrix_intf().zeros(A_rows, sym_data.x_length)
         data["b"] = b
         # Remove constants from expressions.
-        tree_mat.prune_expr(constr_root)
-        # Get ordered list of var sizes.
-        var_offsets = sorted(sym_data.var_offsets.items(),
-                             lambda x,y: x[0] <= y[0])
-        ordered_sizes = [(v, sym_data.var_sizes[v]) for v,_ in var_offsets]
-        data['fao_dag'] = fao_utils.tree_to_dag(constr_root, ordered_sizes)
-        return (data, cones), offset
+        constraints = tree_mat.prune_constants(all_ineq)
+        Amul, ATmul, getDE, getM = iterative.get_mul_funcs(sym_data, constraints)
+        data["Amul"] = Amul
+        data["ATmul"] = ATmul
+        data["getDE"] = getDE
+        data["getM"] = getM
+        return (data, sym_data.dims), offset
 
     def solve(self, objective, constraints, cached_data, verbose, solver_opts):
         """Returns the result of the call to the solver.
@@ -103,11 +104,19 @@ class MAT_FREE_POGS(SCS):
         tuple
             (status, optimal value, primal, equality dual, inequality dual)
         """
-        (data, cones), obj_offset = self.get_problem_data(objective,
+        (data, dims), obj_offset = self.get_problem_data(objective,
                                                          constraints,
                                                          cached_data)
-        results_dict = faoInterface.mat_free_pogs_solve(data['fao_dag'], data,
-            cones, solver_opts)
+        # Always use indirect method.
+        solver_opts["use_indirect"] = True
+        # Set the options to be VERBOSE plus any user-specific options.
+        solver_opts["verbose"] = verbose
+        # Default to p=2.
+        solver_opts["equil_p"] = solver_opts.get("equil_p", 2)
+        solver_opts["stoch"] = solver_opts.get("stoch", False)
+        solver_opts["samples"] = solver_opts.get("samples", 25)
+        solver_opts["precond"] = solver_opts.get("precond", True)
+        results_dict = mat_free_scs.solve(data, dims, **solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
 
     def format_results(self, results_dict, dims, obj_offset=0):

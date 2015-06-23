@@ -19,7 +19,7 @@ along with CVXPY.  If not, see <http://www.gnu.org/licenses/>.
 
 import cvxpy.settings as s
 from cvxpy.problems.solvers.scs_intf import SCS
-import canonInterface
+import faoInterface
 
 class POGS(SCS):
     """An interface for the POGS solver.
@@ -56,7 +56,7 @@ class POGS(SCS):
         cones = self.convert_dims_to_indices(dims)
         # Set the options to be VERBOSE plus any user-specific options.
         solver_opts["verbose"] = verbose
-        results_dict = canonInterface.pogs_solve(data, cones, **solver_opts)
+        results_dict = faoInterface.pogs_solve(data, cones, solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
 
     def format_results(self, results_dict, dims, obj_offset=0):
@@ -84,7 +84,7 @@ class POGS(SCS):
             primal_val = results_dict['info']["pobj"]
             new_results[s.VALUE] = primal_val + obj_offset
             new_results[s.PRIMAL] = results_dict["x"]
-            new_results[s.EQ_DUAL] = results_dict["mu"][0:dims["f"]]
-            new_results[s.INEQ_DUAL] = results_dict["mu"][dims["f"]:]
+            new_results[s.EQ_DUAL] = results_dict["y"][0:dims["f"]]
+            new_results[s.INEQ_DUAL] = results_dict["y"][dims["f"]:]
 
         return new_results

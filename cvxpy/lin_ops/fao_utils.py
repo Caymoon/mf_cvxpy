@@ -21,6 +21,7 @@ import cvxpy.lin_ops.lin_op as lo
 import cvxpy.lin_ops.lin_utils as lu
 from collections import namedtuple
 import numpy as np
+from collections import deque, defaultdict
 
 # A forward adjoint oracle.
 # type: The FAO type.
@@ -152,19 +153,53 @@ def simplify_dag(dag):
     """
     edges = dag.edges.copy()
     start_node = dag.start_node
-    # If any of the copy nodes have only one output,
-    # eliminate them.
-    for idx, edge_idx in enumerate(start_node.output_edges):
-        copy_node = edges[edge_idx][1]
-        if len(copy_node.output_edges) == 1:
-            copy_edge_id = copy_node.output_edges[0]
-            output_node = edges[copy_edge_id][1]
-            new_edge_id = new_edge(start_node, output_node, edges)
-            start_node.output_edges[idx] = new_edge_id
-            copy_idx = output_node.input_edges.index(copy_edge_id)
-            output_node.input_edges[copy_idx] = new_edge_id
-            del edges[copy_edge_id]
-            del edges[edge_idx]
+    # # If any of the copy nodes have only one output,
+    # # eliminate them.
+    # for idx, edge_idx in enumerate(start_node.output_edges):
+    #     copy_node = edges[edge_idx][1]
+    #     if len(copy_node.output_edges) == 1:
+    #         copy_edge_id = copy_node.output_edges[0]
+    #         output_node = edges[copy_edge_id][1]
+    #         new_edge_id = new_edge(start_node, output_node, edges)
+    #         start_node.output_edges[idx] = new_edge_id
+    #         copy_idx = output_node.input_edges.index(copy_edge_id)
+    #         output_node.input_edges[copy_idx] = new_edge_id
+    #         del edges[copy_edge_id]
+    #         del edges[edge_idx]
+
+    # Traverse the graph. Eliminate any identity transformations,
+    # e.g, + with one arg, copy with one output.
+    eval_map = defaultdict(int)
+    ready_queue = deque()
+    ready_queue.append(start_node)
+    while len(ready_queue) > 0:
+        curr = ready_queue.popleft()
+        eval_map[id(curr)] += 1
+        # If each input has visited the node, it is ready.
+        for edge_idx in curr.output_edges:
+            edge = edges[edge_idx]
+            node = edge[1]
+            # If this is an identity transformation, eliminate it.
+            while True:
+                if (node.type == COPY and len(node.output_edges) == 1) or \
+                   (node.type == lo.SUM and len(node.input_edges) == 1):
+                    edge_to_next_idx = node.output_edges[0]
+                    next_node = edges[edge_to_next_idx][1]
+                    new_edge_id = new_edge(curr, next_node, edges)
+                    # Link curr and next_node.
+                    edge_pos = curr.output_edges.index(edge_idx)
+                    curr.output_edges[edge_pos] = new_edge_id
+                    edge_pos = next_node.input_edges.index(edge_to_next_idx)
+                    next_node.input_edges[edge_pos] = new_edge_id
+                    del edges[node.output_edges[0]]
+                    del edges[edge_idx]
+                    node = next_node
+                else:
+                    break
+            eval_map[id(node)] += 1
+            node_inputs_count = len(node.input_edges)
+            if (eval_map[id(node)] == node_inputs_count):
+                ready_queue.append(node)
 
     # If the starting split node only has one output,
     # eliminate it.

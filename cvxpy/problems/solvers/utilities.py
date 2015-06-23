@@ -22,9 +22,10 @@ from cvxpy.problems.solvers.ecos_bb_intf import ECOS_BB
 from cvxpy.problems.solvers.cvxopt_intf import CVXOPT
 from cvxpy.problems.solvers.scs_intf import SCS
 from cvxpy.problems.solvers.mat_free_scs_intf import MAT_FREE_SCS
+from cvxpy.problems.solvers.scs_mat_free_intf import SCS_MAT_FREE
 from cvxpy.problems.solvers.pogs_intf import POGS
 from cvxpy.problems.solvers.mat_free_pogs_intf import MAT_FREE_POGS
 
 solver_intf = [ECOS(), ECOS_BB(), CVXOPT(), SCS(),
-               MAT_FREE_SCS(), MAT_FREE_POGS(), POGS()]
+               MAT_FREE_SCS(), MAT_FREE_POGS(), POGS(), SCS_MAT_FREE()]
 SOLVERS = {solver.name():solver for solver in solver_intf}

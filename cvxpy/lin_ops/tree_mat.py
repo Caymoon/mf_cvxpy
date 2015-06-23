@@ -511,7 +511,10 @@ def prune_expr(lin_op):
             arg = lo.LinOp(lo.NO_OP, arg.size, [], None)
         else:
             is_constant = False
-        pruned_args.append(arg)
+        # Special case for sum.
+        # TODO do this in simplify_dag.
+        if not (arg_constant and lin_op.type == lo.SUM):
+            pruned_args.append(arg)
     # Overwrite old args with only non-constant args.
     lin_op.args[:] = pruned_args[:]
     return is_constant
