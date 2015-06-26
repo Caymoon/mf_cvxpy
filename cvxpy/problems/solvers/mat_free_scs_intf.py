@@ -24,6 +24,7 @@ import cvxpy.lin_ops.tree_mat as tree_mat
 import cvxpy.lin_ops.fao_utils as fao_utils
 import mat_free_scs
 import faoInterface
+import copy
 
 class MAT_FREE_SCS(SCS):
     """An interface for the SCS solver.
@@ -76,6 +77,7 @@ class MAT_FREE_SCS(SCS):
         data = {"c": c}
         data["b"] = b
         # Remove constants from expressions.
+        constr_root = copy.deepcopy(constr_root)
         tree_mat.prune_expr(constr_root)
         # Get ordered list of var sizes.
         var_offsets = sorted(sym_data.var_offsets.items(),

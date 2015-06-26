@@ -22,6 +22,7 @@ from cvxpy.problems.solvers.scs_intf import SCS
 import cvxpy.lin_ops.tree_mat as tree_mat
 import cvxpy.lin_ops.fao_utils as fao_utils
 import faoInterface
+import copy
 
 class MAT_FREE_POGS(SCS):
     """An interface for the matrix-free POGS solver.
@@ -74,6 +75,7 @@ class MAT_FREE_POGS(SCS):
         data = {"c": c}
         data["b"] = b
         # Remove constants from expressions.
+        constr_root = copy.deepcopy(constr_root)
         tree_mat.prune_expr(constr_root)
         # Get ordered list of var sizes.
         var_offsets = sorted(sym_data.var_offsets.items(),

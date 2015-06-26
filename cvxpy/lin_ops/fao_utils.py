@@ -220,7 +220,7 @@ def get_nodes(edges, start_node):
     Include the start node in case no edges.
     """
     nodes = {id(start_node): start_node}
-    for n1, n2 in edges.items():
+    for n1, n2 in edges.values():
         nodes[id(n1)] = n1
         nodes[id(n2)] = n2
     return nodes
