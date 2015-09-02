@@ -153,19 +153,6 @@ def simplify_dag(dag):
     """
     edges = dag.edges.copy()
     start_node = dag.start_node
-    # # If any of the copy nodes have only one output,
-    # # eliminate them.
-    # for idx, edge_idx in enumerate(start_node.output_edges):
-    #     copy_node = edges[edge_idx][1]
-    #     if len(copy_node.output_edges) == 1:
-    #         copy_edge_id = copy_node.output_edges[0]
-    #         output_node = edges[copy_edge_id][1]
-    #         new_edge_id = new_edge(start_node, output_node, edges)
-    #         start_node.output_edges[idx] = new_edge_id
-    #         copy_idx = output_node.input_edges.index(copy_edge_id)
-    #         output_node.input_edges[copy_idx] = new_edge_id
-    #         del edges[copy_edge_id]
-    #         del edges[edge_idx]
 
     # Traverse the graph. Eliminate any identity transformations,
     # e.g, + with one arg, copy with one output.

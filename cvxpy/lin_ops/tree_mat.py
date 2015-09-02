@@ -190,7 +190,7 @@ def op_mul(lin_op, args):
     elif lin_op.type is lo.VSTACK:
         result = np.vstack(args)
     else:
-        raise Exception("Unknown linear operator.")
+        raise Exception("Unknown linear operator %s." % lin_op.type)
     return result
 
 def elem_power(mat, p):
@@ -326,7 +326,7 @@ def op_tmul(lin_op, value):
     elif lin_op.type is lo.RESHAPE:
         result = np.reshape(value, lin_op.args[0].size, order='F')
     else:
-        raise Exception("Unknown linear operator.")
+        raise Exception("Unknown linear operator %s." % lin_op.type)
     return result
 
 def op_ptmul(lin_op, value, p):
