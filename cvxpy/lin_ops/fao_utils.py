@@ -153,7 +153,7 @@ def simplify_dag(dag):
     """
     edges = dag.edges.copy()
     start_node = dag.start_node
-
+    end_node = dag.end_node
     # Traverse the graph. Eliminate any identity transformations,
     # e.g, + with one arg, copy with one output.
     eval_map = defaultdict(int)
@@ -162,6 +162,34 @@ def simplify_dag(dag):
     while len(ready_queue) > 0:
         curr = ready_queue.popleft()
         eval_map[id(curr)] += 1
+        # Last node visited is end node.
+        end_node = curr
+        # TODO very specific.
+        # Rewrite f(-,...,-) as -f(...) if more inputs than outputs.
+        if all_inputs_neg(curr, edges) and \
+            len(curr.output_edges) < len(curr.input_edges):
+            for idx, edge_idx in enumerate(curr.input_edges):
+                # Replace input edge with neg input edge.
+                neg_input = edges[edge_idx][0]
+                del edges[edge_idx]
+                new_edge_id = neg_input.input_edges[0]
+                curr.input_edges[idx] = new_edge_id
+                edges[new_edge_id] = (edges[new_edge_id][0], curr)
+            # Create new NEG nodes as outputs.
+            # Special case for end node.
+            if len(curr.output_edges) == 0:
+                curr.output_edges.append(None)
+            for idx, edge_idx in enumerate(curr.output_edges):
+                size = curr.output_sizes[idx]
+                # Special case for end node.
+                if edge_idx is None:
+                    outputs = []
+                else:
+                    outputs = [edge_idx]
+                neg_node = FAO(lo.NEG, [size], [size], [], outputs, None)
+                new_edge_id = new_edge(curr, neg_node, edges)
+                neg_node.input_edges.append(new_edge_id)
+                curr.output_edges[idx] = new_edge_id
         # If each input has visited the node, it is ready.
         for edge_idx in curr.output_edges:
             edge = edges[edge_idx]
@@ -199,7 +227,15 @@ def simplify_dag(dag):
         start_node.input_edges[:] = []
 
     nodes = get_nodes(edges, start_node)
-    return FAO_DAG(start_node, dag.end_node, nodes, edges)
+    return FAO_DAG(start_node, end_node, nodes, edges)
+
+def all_inputs_neg(node, edges):
+    """Are all the inputs to the node NEG nodes?
+    """
+    for edge_idx in node.input_edges:
+        if edges[edge_idx][0].type != lo.NEG:
+            return False
+    return True
 
 def get_nodes(edges, start_node):
     """Returns all the nodes accessible via the edges.
