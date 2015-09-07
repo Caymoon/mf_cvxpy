@@ -110,6 +110,7 @@ class MAT_FREE_SCS(SCS):
         (data, dims), obj_offset = self.get_problem_data(objective,
                                                          constraints,
                                                          cached_data)
+        solver_opts["verbose"] = verbose
         results_dict = faoInterface.scs_solve(data['fao_dag'], data, dims, solver_opts)
         return self.format_results(results_dict, dims, obj_offset)
 
