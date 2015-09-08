@@ -296,6 +296,10 @@ class Problem(u.Canonical):
         # TODO Hack
         if 'CG_ITERS' in results_dict:
             self.cg_iters = results_dict['CG_ITERS']
+        if 'A_evals' in results_dict:
+            self.A_evals = results_dict['A_evals']
+        if 'AT_evals' in results_dict:
+            self.AT_evals = results_dict['AT_evals']
 
     def unpack_results(self, solver_name, results_dict):
         """Parses the output from a solver and updates the problem state.
