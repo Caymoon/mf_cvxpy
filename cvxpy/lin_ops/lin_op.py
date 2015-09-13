@@ -74,6 +74,9 @@ DIAG_MAT = "diag_mat"
 # The 1D discrete convolution of two vectors.
 # Data: LinOp evaluating to the left hand term.
 CONV = "conv"
+# The 2D discrete convolution of two matrices.
+# Data: LinOp evaluating to the left hand term.
+CONV2D = "conv2d"
 # Horizontally concatenating operators.
 # Data: None
 HSTACK = "hstack"

@@ -391,7 +391,7 @@ def diag_mat_mat(lin_op):
 
     Returns
     -------
-    SciPy CSC matrix
+    list of SciPy CSC matrix
         The matrix to extract the diagonal from a matrix.
     """
     rows, _ = lin_op.size
@@ -409,6 +409,34 @@ def diag_mat_mat(lin_op):
     return [sp.coo_matrix((val_arr, (row_arr, col_arr)),
                           (rows, rows**2)).tocsc()]
 
+def conv_helper(kernel, size):
+    """Returns the column convolution matrix for a given vector.
+
+    Parameters
+    ----------
+    NumPy 1D array : kernel
+        The convolution kernel.
+    size : tuple
+        The dimension of the final matrix.
+
+    Returns
+    -------
+    NumPy matrix
+        The matrix representing the convolution operation.
+    """
+    kernel = intf.from_2D_to_1D(kernel)
+
+    # Create a Toeplitz matrix with kernel as columns.
+    rows = size[0]
+    nonzeros = kernel.size
+    toeplitz_col = np.zeros(rows)
+    toeplitz_col[0:nonzeros] = kernel
+
+    cols = size[1]
+    toeplitz_row = np.zeros(cols)
+    toeplitz_row[0] = kernel[0]
+    return np.matrix(sp_la.toeplitz(toeplitz_col, toeplitz_row))
+
 def conv_mat(lin_op):
     """Returns the coefficient matrix for CONV linear op.
 
@@ -419,25 +447,43 @@ def conv_mat(lin_op):
 
     Returns
     -------
+    list of NumPy matrices
+        The matrix representing the convolution operation.
+    """
+    constant = const_mat(lin_op.data)
+    size = (lin_op.size[0], lin_op.args[0].size[0])
+    return [conv_helper(constant, size)]
+
+def conv2d_mat(lin_op):
+    """Returns the coefficient matrix for CONV2D linear op.
+
+    Parameters
+    ----------
+    lin_op : LinOp
+        The conv2d linear op.
+
+    Returns
+    -------
     list of NumPy matrix
         The matrix representing the convolution operation.
     """
     constant = const_mat(lin_op.data)
-    # Cast to 1D.
-    constant = intf.from_2D_to_1D(constant)
+    # Get Col(c_i) for all columns c_i.
+    s = lin_op.args[0].size[0]
+    size = (lin_op.size[0], s)
+    conv_mats = []
+    for i in range(constant.shape[1]):
+        conv_mats.append( conv_helper(constant[:,i], size) )
 
-    # Create a Toeplitz matrix with constant as columns.
-    rows = lin_op.size[0]
-    nonzeros = lin_op.data.size[0]
-    toeplitz_col = np.zeros(rows)
-    toeplitz_col[0:nonzeros] = constant
+    # Stack the matrices in a Toeplitz pattern.
+    stacked = np.vstack(conv_mats)
+    blocks = []
+    for i in range(lin_op.args[0].size[1]):
+        top = np.zeros((i*lin_op.size[0], s))
+        bottom = np.zeros(((lin_op.args[0].size[1]-i-1)*lin_op.size[0], s))
+        blocks.append(np.vstack([top, stacked, bottom]))
 
-    cols = lin_op.args[0].size[0]
-    toeplitz_row = np.zeros(cols)
-    toeplitz_row[0] = constant[0]
-    coeff = sp_la.toeplitz(toeplitz_col, toeplitz_row)
-
-    return [np.matrix(coeff)]
+    return [np.hstack(blocks)]
 
 def stack_mats(lin_op, vertical):
     """Returns the coefficient matrices for VSTACK or HSTACK linear op.
@@ -504,6 +550,7 @@ TYPE_TO_FUNC = {
     lo.DIAG_VEC: diag_vec_mat,
     lo.DIAG_MAT: diag_mat_mat,
     lo.CONV: conv_mat,
+    lo.CONV2D: conv2d_mat,
     lo.HSTACK: lambda lin_op: stack_mats(lin_op, False),
     lo.VSTACK: lambda lin_op: stack_mats(lin_op, True),
 }

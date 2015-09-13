@@ -178,7 +178,7 @@ def op_mul(lin_op, args):
         result = args[0][row_slc, col_slc]
     elif lin_op.type is lo.TRANSPOSE:
         result = args[0].T
-    elif lin_op.type is lo.CONV:
+    elif lin_op.type in [lo.CONV, lo.CONV2D]:
         result = conv_mul(lin_op, args[0])
     elif lin_op.type is lo.PROMOTE:
         result = np.ones(lin_op.size)*args[0]

@@ -318,6 +318,25 @@ def conv(lh_op, rh_op, size):
     """
     return lo.LinOp(lo.CONV, size, [rh_op], lh_op)
 
+def conv2d(lh_op, rh_op, size):
+    """2D discrete convolution of two matrices.
+
+    Parameters
+    ----------
+    lh_op : LinOp
+        The left-hand operator in the convolution.
+    rh_op : LinOp
+        The right-hand operator in the convolution.
+    size : tuple
+        The size of the convolution.
+
+    Returns
+    -------
+    LinOp
+        A linear operator representing the convolution.
+    """
+    return lo.LinOp(lo.CONV2D, size, [rh_op], lh_op)
+
 def transpose(operator):
     """Transposes an operator.
 

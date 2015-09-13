@@ -114,6 +114,9 @@ def lin_op_to_fao(root, edges):
     elif root.type == lo.CONV:
         fao_type = lo.CONV
         fao_data = lin_op_data(root).flatten()
+    elif root.type == lo.CONV2D:
+        fao_type = lo.CONV2D
+        fao_data = lin_op_data(root)
     else:
         fao_type = root.type
         fao_data = root.data

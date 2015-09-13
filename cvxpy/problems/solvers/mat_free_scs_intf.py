@@ -137,6 +137,8 @@ class MAT_FREE_SCS(SCS):
         new_results[s.SOLVE_TIME] = results_dict["info"]["solveTime"] + \
                                     results_dict["info"]["setupTime"]
         new_results['CG_ITERS'] = results_dict["info"]["cgIter"]
+        new_results['A_evals'] = results_dict["info"]["A_evals"]
+        new_results['AT_evals'] = results_dict["info"]["AT_evals"]
         if new_results[s.STATUS] in s.SOLUTION_PRESENT:
             primal_val = results_dict["info"]["pobj"]
             new_results[s.VALUE] = primal_val + obj_offset

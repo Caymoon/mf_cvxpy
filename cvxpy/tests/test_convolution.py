@@ -53,11 +53,33 @@ class TestConvolution(BaseTest):
         self.assertAlmostEqual(result, sum(f_conv_g))
         self.assertItemsAlmostEqual(expr.value, f_conv_g)
 
-        # # Expression trees.
-        # prob = Problem(Minimize(norm(expr, 1)))
-        # self.prob_mat_vs_mul_funcs(prob)
-        # result = prob.solve(solver=SCS, expr_tree=True, verbose=True)
-        # self.assertAlmostEqual(result, 0, places=1)
+    def test_2D_conv(self):
+        """Test 2D convolution.
+        """
+        n = 3
+        m = 2
+        x = Variable(2, 2)
+        f = np.matrix("1 2 3; 4 5 6")
+        g = np.matrix("-1 1; 1 1")
+        f_conv_g = np.matrix("""-1 -1 -1 3;
+                                 -3 2  4 9;
+                                 4 9 11 6
+                             """)
+        expr = conv2d(f, g)
+        assert expr.is_constant()
+        self.assertEquals(expr.size, (3, 4))
+        self.assertItemsAlmostEqual(expr.value, f_conv_g)
+
+        expr = conv2d(f, x)
+        assert expr.is_affine()
+        self.assertEquals(expr.size, (3, 4))
+        # Matrix stuffing.
+        t = Variable()
+        prob = Problem(Minimize(norm(expr, 1)),
+            [x == g])
+        result = prob.solve()
+        self.assertAlmostEqual(result, np.abs(f_conv_g).sum())
+        self.assertItemsAlmostEqual(expr.value, f_conv_g)
 
     def prob_mat_vs_mul_funcs(self, prob):
         data, dims = prob.get_problem_data(solver=SCS)
