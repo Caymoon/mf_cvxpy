@@ -270,6 +270,23 @@ class test_tree_mat(BaseTest):
         result_dict = tmul(expr, result)
         assert (np.matrix(result_dict[x.id]) == np.matrix([[1,4,2], [5, 3, 6]]).T).all()
 
+        # Vstack.
+        x = Variable(2, 3)
+        y = Variable(1, 3)
+        expr = (vstack(x, y)).canonical_form[0]
+        orig_x = np.array([[1,2,3], [4, 5, 6]])
+        orig_y = np.array([[7, 8, 9]])
+        val_dict = {x.id: orig_x, y.id: orig_y}
+
+        result = mul(expr, val_dict)
+        assert (result == np.array([[1,2,3], [4, 5, 6], [7, 8, 9]])).all()
+
+        result_dict = tmul(expr, result)
+        print np.matrix(result_dict[x.id])
+        assert (np.matrix(result_dict[x.id]) == np.array([[1,2,3], [4, 5, 6]])).all()
+        assert (np.matrix(result_dict[y.id]) == np.array([[7, 8, 9]])).all()
+
+
     def test_pmul(self):
         """Test the p mul method.
         """
@@ -397,12 +414,27 @@ class test_tree_mat(BaseTest):
             orig = np.array([[1,2,3], [4, 5, 6]])
             val_dict = {x.id: orig}
 
-            result = mul(expr, val_dict)
+            result = mul(expr, val_dict, p)
             assert (result == np.matrix([[1, 4, 2, 5, 3, 6]])).all()
 
-            result_dict = tmul(expr, result)
-            assert (np.matrix(result_dict[x.id]) == np.matrix([[1,4,2], [5, 3, 6]]).T).all()
+            result_dict = tmul(expr, result, p)
+            assert np.allclose(np.matrix(result_dict[x.id]), np.matrix([[1.,4.,2.], [5., 3., 6.]]).T)
 
+        for p in [1, 2, 3]:
+            # Vstack.
+            x = Variable(2, 3)
+            y = Variable(1, 3)
+            expr = (vstack(x, y)).canonical_form[0]
+            orig_x = np.array([[1,2,3], [4, 5, 6]])
+            orig_y = np.array([[7, 8, 9]])
+            val_dict = {x.id: orig_x, y.id: orig_y}
+
+            result = mul(expr, val_dict, p)
+            assert (result == np.array([[1,2,3], [4, 5, 6], [7, 8, 9]])).all()
+
+            result_dict = tmul(expr, result, p)
+            assert np.allclose(np.matrix(result_dict[x.id]), np.array([[1.,2.,3.], [4., 5., 6.]]))
+            assert np.allclose(np.matrix(result_dict[y.id]), np.array([[7., 8., 9.]]))
 
     def test_prune_constants(self):
         """Test pruning constants from constraints.

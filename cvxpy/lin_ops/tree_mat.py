@@ -48,14 +48,14 @@ def mul(lin_op, val_dict, p=None):
         The result of the multiplication.
     """
     # Look up the value for a variable.
-    if lin_op.type is lo.VARIABLE:
+    if lin_op.type == lo.VARIABLE:
         if lin_op.data in val_dict:
             return val_dict[lin_op.data]
         # Defaults to zero if no value given.
         else:
             return np.mat(np.zeros(lin_op.size))
     # Return all zeros for NO_OP.
-    elif lin_op.type is lo.NO_OP:
+    elif lin_op.type == lo.NO_OP:
         return np.mat(np.zeros(lin_op.size))
     else:
         eval_args = []
@@ -84,18 +84,18 @@ def tmul(lin_op, value, p=None):
         A map of variable id to value.
     """
     # Store the value as the variable.
-    if lin_op.type is lo.VARIABLE:
+    if lin_op.type == lo.VARIABLE:
         return {lin_op.data: value}
     # Do nothing for NO_OP.
-    elif lin_op.type is lo.NO_OP:
+    elif lin_op.type == lo.NO_OP:
         return {}
     else:
         if p is not None:
-            result = op_ptmul(lin_op, value, p)
+            results = op_ptmul(lin_op, value, p)
         else:
-            result = op_tmul(lin_op, value)
+            results = op_tmul(lin_op, value)
         result_dicts = []
-        for arg in lin_op.args:
+        for arg, result in zip(lin_op.args, results):
             result_dicts.append(tmul(arg, result, p))
         # Sum repeated ids.
         return sum_dicts(result_dicts, p)
@@ -149,45 +149,45 @@ def op_mul(lin_op, args):
     # Constants convert directly to their value.
     if lin_op.type in [lo.SCALAR_CONST, lo.DENSE_CONST, lo.SPARSE_CONST]:
         result = lin_op.data
-    elif lin_op.type is lo.PARAM:
+    elif lin_op.type == lo.PARAM:
         result = lin_op.data.value
     # No-op is not evaluated.
-    elif lin_op.type is lo.NO_OP:
+    elif lin_op.type == lo.NO_OP:
         return None
     # For non-leaves, recurse on args.
-    elif lin_op.type is lo.SUM:
+    elif lin_op.type == lo.SUM:
         result = sum(args)
-    elif lin_op.type is lo.NEG:
+    elif lin_op.type == lo.NEG:
         result = -args[0]
-    elif lin_op.type is lo.MUL:
+    elif lin_op.type == lo.MUL:
         coeff = mul(lin_op.data, {})
         result = coeff*args[0]
-    elif lin_op.type is lo.RMUL:
+    elif lin_op.type == lo.RMUL:
         coeff = mul(lin_op.data, {})
         result = args[0]*coeff
-    elif lin_op.type is lo.MUL_ELEM:
+    elif lin_op.type == lo.MUL_ELEM:
         coeff = mul(lin_op.data, {})
         result = np.multiply(args[0], coeff)
-    elif lin_op.type is lo.DIV:
+    elif lin_op.type == lo.DIV:
         divisor = mul(lin_op.data, {})
         result = args[0]/divisor
-    elif lin_op.type is lo.SUM_ENTRIES:
+    elif lin_op.type == lo.SUM_ENTRIES:
         result = np.sum(args[0])
-    elif lin_op.type is lo.INDEX:
+    elif lin_op.type == lo.INDEX:
         row_slc, col_slc = lin_op.data
         result = args[0][row_slc, col_slc]
-    elif lin_op.type is lo.TRANSPOSE:
+    elif lin_op.type == lo.TRANSPOSE:
         result = args[0].T
     elif lin_op.type in [lo.CONV, lo.CONV2D]:
         result = conv_mul(lin_op, args[0])
-    elif lin_op.type is lo.PROMOTE:
+    elif lin_op.type == lo.PROMOTE:
         result = np.ones(lin_op.size)*args[0]
-    elif lin_op.type is lo.DIAG_VEC:
+    elif lin_op.type == lo.DIAG_VEC:
         val = intf.from_2D_to_1D(args[0])
         result = np.diag(val)
-    elif lin_op.type is lo.RESHAPE:
+    elif lin_op.type == lo.RESHAPE:
         result = np.reshape(args[0], lin_op.size, order='F')
-    elif lin_op.type is lo.VSTACK:
+    elif lin_op.type == lo.VSTACK:
         result = np.vstack(args)
     else:
         raise Exception("Unknown linear operator %s." % lin_op.type)
@@ -235,36 +235,36 @@ def op_pmul(lin_op, args, p):
         The result of applying the linear operator.
     """
     # Take the elementwise p-norm.
-    if lin_op.type is lo.SUM:
+    if lin_op.type == lo.SUM:
         result = 0
         for arg in args:
             result += np.power(arg, p)
         result = np.power(result, 1.0/p)
-    elif lin_op.type is lo.MUL_ELEM:
+    elif lin_op.type == lo.MUL_ELEM:
         coeff = mul(lin_op.data, {})
         coeff = elem_power(coeff, 1)
         result = np.multiply(coeff, args[0])
     # Take the p-norm.
-    elif lin_op.type is lo.SUM_ENTRIES:
+    elif lin_op.type == lo.SUM_ENTRIES:
         result = numpy.linalg.norm(args[0], p)
-    elif lin_op.type is lo.NEG:
+    elif lin_op.type == lo.NEG:
         result = args[0]
     # (|A|^p x^p)^(1/p)
-    elif lin_op.type is lo.MUL:
+    elif lin_op.type == lo.MUL:
         coeff = mul(lin_op.data, {})
         result = mat_pmul(coeff, args[0], p)
     # (x^p|A|^p)^(1/p)
-    elif lin_op.type is lo.RMUL:
+    elif lin_op.type == lo.RMUL:
         coeff = mul(lin_op.data, {})
         result = mat_pmul(args[0], coeff, p)
-    elif lin_op.type is lo.MUL_ELEM:
+    elif lin_op.type == lo.MUL_ELEM:
         coeff = mul(lin_op.data, {})
         result = mat_pmul(args[0], coeff, p)
     # x/|a|
-    elif lin_op.type is lo.DIV:
+    elif lin_op.type == lo.DIV:
         divisor = np.abs(mul(lin_op.data, {}))
         result = args[0]/divisor
-    elif lin_op.type is lo.CONV:
+    elif lin_op.type == lo.CONV:
         result = conv_mul(lin_op, args[0], False, p)
     else:
         result = op_mul(lin_op, args)
@@ -285,49 +285,60 @@ def op_tmul(lin_op, value):
     NumPy matrix or SciPy sparse matrix.
         The result of applying the linear operator.
     """
-    if lin_op.type is lo.SUM:
-        result = value
-    elif lin_op.type is lo.NEG:
+    if lin_op.type == lo.SUM:
+        result = len(lin_op.args)*[value]
+    elif lin_op.type == lo.VSTACK:
+        result = []
+        offset = 0
+        for arg in lin_op.args:
+            rows, cols = arg.size
+            result.append(value[offset:offset+rows, 0:cols])
+            offset += rows
+    elif lin_op.type == lo.NEG:
         result = -value
-    elif lin_op.type is lo.MUL_ELEM:
+    elif lin_op.type == lo.MUL_ELEM:
         coeff = mul(lin_op.data, {})
         result = np.multiply(coeff, value)
-    elif lin_op.type is lo.MUL:
+    elif lin_op.type == lo.MUL:
         coeff = mul(lin_op.data, {})
         # Scalar coefficient, no need to transpose.
         if np.isscalar(coeff):
             result = coeff*value
         else:
             result = coeff.T*value
-    elif lin_op.type is lo.RMUL:
+    elif lin_op.type == lo.RMUL:
         coeff = mul(lin_op.data, {})
         # Scalar coefficient, no need to transpose.
         if np.isscalar(coeff):
             result = value*coeff
         else:
             result = value*coeff.T
-    elif lin_op.type is lo.DIV:
+    elif lin_op.type == lo.DIV:
         divisor = mul(lin_op.data, {})
         result = value/divisor
-    elif lin_op.type is lo.SUM_ENTRIES:
+    elif lin_op.type == lo.SUM_ENTRIES:
         result = np.mat(np.ones(lin_op.args[0].size))*value
-    elif lin_op.type is lo.INDEX:
+    elif lin_op.type == lo.INDEX:
         row_slc, col_slc = lin_op.data
         result = np.mat(np.zeros(lin_op.args[0].size))
         result[row_slc, col_slc] = value
-    elif lin_op.type is lo.TRANSPOSE:
+    elif lin_op.type == lo.TRANSPOSE:
         result = value.T
-    elif lin_op.type is lo.PROMOTE:
+    elif lin_op.type == lo.PROMOTE:
         result = np.sum(value)
-    elif lin_op.type is lo.DIAG_VEC:
+    elif lin_op.type == lo.DIAG_VEC:
         result = np.diag(value)
-    elif lin_op.type is lo.CONV:
+    elif lin_op.type == lo.CONV:
         result = conv_mul(lin_op, value, transpose=True)
-    elif lin_op.type is lo.RESHAPE:
+    elif lin_op.type == lo.RESHAPE:
         result = np.reshape(value, lin_op.args[0].size, order='F')
     else:
         raise Exception("Unknown linear operator %s." % lin_op.type)
-    return result
+
+    if isinstance(result, list):
+        return result
+    else:
+        return [result]
 
 def op_ptmul(lin_op, value, p):
     """Applies the linear operator ~||A.T||_p to the arguments.
@@ -346,38 +357,42 @@ def op_ptmul(lin_op, value, p):
     NumPy matrix or SciPy sparse matrix.
         The result of applying the linear operator.
     """
-    if lin_op.type is lo.NEG:
+    if lin_op.type == lo.NEG:
         result = value
-    elif lin_op.type is lo.MUL_ELEM:
+    elif lin_op.type == lo.MUL_ELEM:
         coeff = mul(lin_op.data, {})
         coeff = elem_power(coeff, 1)
         result = np.multiply(coeff, value)
     # Take the p-norm.
-    elif lin_op.type is lo.PROMOTE:
+    elif lin_op.type == lo.PROMOTE:
         result = numpy.linalg.norm(value, p)
     # (|A^T|^p x^p)^(1/p)
-    elif lin_op.type is lo.MUL:
+    elif lin_op.type == lo.MUL:
         coeff = mul(lin_op.data, {})
         # If scalar coefficient, no need to transpose.
         if not np.isscalar(coeff):
             coeff = coeff.T
         result = mat_pmul(coeff, value, p)
     # (x^p|A^T|^p)^(1/p)
-    elif lin_op.type is lo.RMUL:
+    elif lin_op.type == lo.RMUL:
         coeff = mul(lin_op.data, {})
         # If scalar coefficient, no need to transpose.
         if not np.isscalar(coeff):
             coeff = coeff.T
         result = mat_pmul(value, coeff, p)
     # x/|a|
-    elif lin_op.type is lo.DIV:
+    elif lin_op.type == lo.DIV:
         divisor = np.abs(mul(lin_op.data, {}))
         result = value/divisor
-    elif lin_op.type is lo.CONV:
+    elif lin_op.type == lo.CONV:
         result = conv_mul(lin_op, value, True, p)
     else:
         result = op_tmul(lin_op, value)
-    return result
+
+    if isinstance(result, list):
+        return result
+    else:
+        return [result]
 
 def conv_mul(lin_op, rh_val, transpose=False, p=None):
     """Multiply by a convolution operator.
@@ -495,7 +510,7 @@ def prune_expr(lin_op):
     bool
         Were all the expression's arguments pruned?
     """
-    if lin_op.type is lo.VARIABLE:
+    if lin_op.type == lo.VARIABLE:
         return False
     elif lin_op.type in [lo.SCALAR_CONST,
                          lo.DENSE_CONST,
