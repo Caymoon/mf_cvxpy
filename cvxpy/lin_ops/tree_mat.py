@@ -328,7 +328,7 @@ def op_tmul(lin_op, value):
         result = np.sum(value)
     elif lin_op.type == lo.DIAG_VEC:
         result = np.diag(value)
-    elif lin_op.type == lo.CONV:
+    elif lin_op.type in [lo.CONV, lo.CONV2D]:
         result = conv_mul(lin_op, value, transpose=True)
     elif lin_op.type == lo.RESHAPE:
         result = np.reshape(value, lin_op.args[0].size, order='F')
