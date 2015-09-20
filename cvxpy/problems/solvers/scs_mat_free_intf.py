@@ -29,7 +29,7 @@ class SCS_MAT_FREE(SCS):
     def name(self):
         """The name of the solver.
         """
-        return s.OLD_SCS_MAT_FREE
+        return s.SCS_MAT_FREE
 
     def split_constr(self, constr_map):
         """Extracts the equality, inequality, and nonlinear constraints.
