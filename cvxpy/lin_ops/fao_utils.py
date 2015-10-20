@@ -106,6 +106,10 @@ def lin_op_to_fao(root, edges):
             else:
                 fao_type = SPARSE_MAT_MAT_MUL
         fao_data = lin_op_data(root)
+    # Extract data matrix for RMUL
+    elif root.type == lo.RMUL:
+        fao_type = lo.RMUL
+        fao_data = lin_op_data(root)
     # Convert division to scalar multiplication.
     elif root.type == lo.DIV:
         fao_type = SCALAR_MUL
