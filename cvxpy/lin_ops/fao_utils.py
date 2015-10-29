@@ -205,7 +205,8 @@ def simplify_dag(dag):
             # It's a while loop in case the next node can also be eliminated.
             while True:
                 if (node.type == COPY and len(node.output_edges) == 1) or \
-                   (node.type == lo.SUM and len(node.input_edges) == 1):
+                   (node.type == lo.SUM and len(node.input_edges) == 1) or \
+                    node.type == lo.RESHAPE: # TODO Removing reshape nodes is a hack.
                     edge_to_next_idx = node.output_edges[0]
                     next_node = edges[edge_to_next_idx][1]
                     new_edge_id = new_edge(curr, next_node, edges)
