@@ -1,41 +1,9 @@
-CVXPY [![Build Status](https://travis-ci.org/cvxgrp/cvxpy.png?branch=master)](https://travis-ci.org/cvxgrp/cvxpy)
-=====================
-**Join the [CVXPY mailing list](https://groups.google.com/forum/#!forum/cvxpy) for the best CVXPY support!**
+This is a special version of CVXPY designed for matrix-free convex optimization. See [these papers](http://stanford.edu/~boyd/papers/abs_ops.html) for further details on matrix-free convex optimization. See the [CVXPY site](http://www.cvxpy.org) for more information on CVXPY itself.
 
-**The CVXPY documentation is at [cvxpy.org](http://www.cvxpy.org/).**
+From the perspective of the user, matrix-free CVXPY is exactly the same as standard CVXPY except it has an additional solver "SCS_MAT_FREE", which is a matrix-free version of SCS.
+The solver is preliminary and not at all optimized. 
 
-CVXPY is a Python-embedded modeling language for convex optimization problems. It allows you to express your problem in a natural way that follows the math, rather than in the restrictive standard form required by solvers.
+To install matrix-free CVXPY, clone the Github repository and run ``python setup.py install`` in the repository directory.
+You must also install the matrix-free SCS solver from source ([repository here](https://github.com/SteveDiamond/scs)).
 
-For example, the following code solves a least-squares problem where the variable is constrained by lower and upper bounds:
-
-```
-from cvxpy import *
-import numpy
-
-# Problem data.
-m = 30
-n = 20
-numpy.random.seed(1)
-A = numpy.random.randn(m, n)
-b = numpy.random.randn(m)
-
-# Construct the problem.
-x = Variable(n)
-objective = Minimize(sum_squares(A*x - b))
-constraints = [0 <= x, x <= 1]
-prob = Problem(objective, constraints)
-
-# The optimal objective is returned by prob.solve().
-result = prob.solve()
-# The optimal value for x is stored in x.value.
-print x.value
-# The optimal Lagrange multiplier for a constraint
-# is stored in constraint.dual_value.
-print constraints[0].dual_value
-```
-
-CVXPY was designed and implemented by Steven Diamond, with input from Stephen Boyd and Eric Chu.
-
-A tutorial and other documentation can be found at [cvxpy.org](http://www.cvxpy.org/).
-
-This git repository holds the latest development version of CVXPY. For installation instructions, see the [install guide](http://www.cvxpy.org/en/latest/install/index.html) at [cvxpy.org](http://www.cvxpy.org/).
+See [this repo](https://github.com/SteveDiamond/FAO_DAG/blob/master/README.md) for instructions on installing a faster version of the matrix-free SCS solver.
