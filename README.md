@@ -6,4 +6,4 @@ The solver is preliminary and not at all optimized.
 To install matrix-free CVXPY, clone the Github repository and run ``python setup.py install`` in the repository directory.
 You must also install the matrix-free SCS solver from source ([repository here](https://github.com/SteveDiamond/scs)).
 
-See [this repo](https://github.com/SteveDiamond/FAO_DAG/blob/master/README.md) for instructions on installing a faster version of the matrix-free SCS solver.
+See [this repository](https://github.com/SteveDiamond/FAO_DAG/blob/master/README.md) for instructions on installing a faster version of the matrix-free SCS solver.
